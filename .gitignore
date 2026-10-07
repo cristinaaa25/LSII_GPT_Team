@@ -1,3 +1,5 @@
 .vscode/
 .idea/
 .run/
+# Personal AI tool settings (not shared)
+.claude/settings.local.json
