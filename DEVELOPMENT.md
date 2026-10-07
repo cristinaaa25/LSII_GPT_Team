@@ -200,3 +200,23 @@ database (NFR-01 in [REQUIREMENT.md](./REQUIREMENT.md)). The PostgreSQL driver i
 * **Frontend can't reach the API in dev**: make sure the backend is running on port 8080, or adjust
   `VITE_API_DOMAIN` in `.env.development.local`.
 * **Port already in use**: change `server.port` (backend) or run `npm run dev -- --port 5174` (frontend).
+
+## 7. AI configuration
+
+The team's AI setup is shared and versioned (NFR-06). Change it only through a PR.
+
+| File / folder                         | Read by                    | Purpose                                              |
+|---------------------------------------|----------------------------|------------------------------------------------------|
+| `AGENTS.md`                           | all tools                  | Single source of truth: commands, conventions, DoD   |
+| `backend/AGENTS.md`, `frontend/AGENTS.md` | all tools (nested)     | Rules loaded only when working in that folder        |
+| `CLAUDE.md` (root, backend, frontend) | Claude Code                | One line: `@AGENTS.md`                               |
+| `.agents/skills/<name>/SKILL.md`      | Antigravity (source)       | Reusable task playbooks                              |
+| `.claude/skills/<name>/SKILL.md`      | Claude Code                | Wrappers pointing to `.agents/skills/`               |
+| `.claude/agents/reviewer.md`          | Claude Code                | Read-only reviewer subagent                          |
+| `.claude/settings.json`               | Claude Code                | Shared permissions (personal ones: `settings.local.json`) |
+| `.github/copilot-instructions.md`     | Copilot (PR review)        | Review criteria                                      |
+| `prompts/`                            | humans + all tools         | Approved prompts (NFR-07)                            |
+
+Available skills: `create-rest-endpoint`, `create-react-component`, `save-ai-prompt`, `review-changes`,
+`pr-description`. To add a skill, create `.agents/skills/<name>/SKILL.md` and a matching wrapper in
+`.claude/skills/<name>/SKILL.md` with the same `name` and `description`.
