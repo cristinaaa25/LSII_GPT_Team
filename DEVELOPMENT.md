@@ -128,7 +128,7 @@ The MVP requires **more than 50% coverage** on both apps.
 
 ### CI
 
-`.github/workflows/main.yml` runs on every PR and push to `main`:
+`.github/workflows/main.yml` runs on every PR and push to `develop` and `main`:
 
 1. Frontend: `npm ci` → `npm run build` → `npm run test` → `npm run lint`
 2. Backend: `./mvnw clean verify -Pcoverage`
@@ -183,8 +183,11 @@ database (NFR-01 in [REQUIREMENT.md](./REQUIREMENT.md)). The PostgreSQL driver i
 
 ## 6. Workflow reminders
 
-* `main` is protected: work in a branch and open a Pull Request; it needs at least one approval and all Copilot
-  review comments resolved before merging.
+* Git flow: `main` (released, tagged) and `develop` (integration) are protected by a ruleset. Work in
+  `task/<ticket>-name` or `feature/<name>` branched from an updated `develop`, and open the PR **into `develop`**.
+  Only `release/*` and `hotfix/*` PRs target `main`. Branch table: `AGENTS.md` → Conventions.
+* A PR needs 1 approval on its latest push, all Copilot review comments resolved and green CI; merge with squash
+  and delete the branch.
 * Use [conventional commits](https://www.conventionalcommits.org/en/v1.0.0/#summary) and reference the task.
 * If AI generated part of a change, mark it in the commit message and reference the prompt from `prompts/` that was
   used (see [prompts/README.md](./prompts/README.md)).

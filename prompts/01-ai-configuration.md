@@ -25,3 +25,6 @@ Requirements:
 - Generated with Claude Code (Claude Opus 5.5).
 - Antigravity reads `AGENTS.md` (also nested) and `.agents/skills/`; Claude Code reads `CLAUDE.md` and
   `.claude/skills/`, `.claude/agents/`.
+- Follow-up prompt (same PR): "Read Gitflow_Pull_Requests.pdf (Week 21). The repo now has the professor's ruleset.
+  Adapt the AI configuration to Git flow: `develop` as integration branch, `task/` and `feature/` PRs into
+  `develop`, only `release/` and `hotfix/` into `main`, and run CI on PRs to `develop`."

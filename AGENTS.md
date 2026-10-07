@@ -19,7 +19,8 @@ Setup, env vars and troubleshooting: `DEVELOPMENT.md`. Assignment rules: `README
 
 ## Commands
 
-Run them from the folder shown. These are the same steps CI runs (`.github/workflows/main.yml`).
+Run them from the folder shown. These are the same steps CI runs on every PR to `develop`/`main`
+(`.github/workflows/main.yml`).
 
 | What                    | Backend (`backend/`)                   | Frontend (`frontend/`)               |
 |-------------------------|----------------------------------------|--------------------------------------|
@@ -36,9 +37,19 @@ Run them from the folder shown. These are the same steps CI runs (`.github/workf
 
 ## Conventions
 
-* Branches: `feature/<ticket>-short-name`, `fix/<ticket>-short-name`. Never commit or push to `main`.
-* Every change goes through a Pull Request: at least 1 teammate approval, all Copilot review comments resolved,
-  then **squash merge**.
+* **Git flow.** `main` and `develop` are long-lived and protected: never commit or push to them directly.
+
+  | Branch                  | Branches off | PR into              | Use                                        |
+  |-------------------------|--------------|----------------------|--------------------------------------------|
+  | `task/<ticket>-name`    | `develop`    | `develop`            | One isolated task (one ticket)             |
+  | `feature/<name>`        | `develop`    | `develop`            | Functionality made of dependent commits    |
+  | `release/<x.y.z>`       | `develop`    | `main` and `develop` | Stabilise a version; tag `vX.Y.Z` on main  |
+  | `hotfix/<name>`         | `main`       | `main` and `develop` | Urgent fix of a bug in `main`              |
+
+* Always branch from an up-to-date base (`git switch develop && git pull`). The PR base is `develop` unless it
+  is a release or hotfix.
+* Every change goes through a Pull Request: 1 teammate approval on the latest push, Copilot review comments
+  resolved, CI green, then **squash merge** and delete the branch.
 * Commits: [Conventional Commits](https://www.conventionalcommits.org/) `type(scope): description`, referencing
   the task (e.g. `feat(video): list videos from the store (#12)`).
 * Backend layering: Controller → Service → Repository. Controllers return DTOs, never JPA entities.
@@ -68,7 +79,7 @@ A task is done only when all of these hold:
 3. Coverage thresholds pass (JaCoCo: 75% bundle / 50% per class; Jest: 75% global). Never lower them.
 4. `npm run lint` passes with no errors.
 5. Prompts used are saved in `prompts/` and referenced in the commit.
-6. PR approved by at least one teammate, Copilot comments resolved, CI green.
+6. PR into `develop` approved by at least one teammate, Copilot comments resolved, CI green.
 
 ## Known pitfalls
 

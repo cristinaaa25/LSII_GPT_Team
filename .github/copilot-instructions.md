@@ -9,3 +9,5 @@ When reviewing pull requests, flag as blocking:
 * Secrets, tokens, passwords or hardcoded local paths.
 * AI-assisted commits without a prompt file in `prompts/` referenced in the commit message.
 * Commit messages that are not Conventional Commits in English.
+* Pull requests from `task/*` or `feature/*` branches that target `main` instead of `develop` (only `release/*` and
+  `hotfix/*` may target `main`).
