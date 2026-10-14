@@ -20,7 +20,7 @@ Base package `com.tecnocampus.LS2.protube_back`:
 * Errors: throw domain exceptions from services and translate them to HTTP status in a `@RestControllerAdvice`
   (404 for not found, 400 for validation, 403 for ownership). Do not return `null` bodies.
 * Read config through `Environment`/`@Value("${pro_tube.store.dir}")`, never hardcoded paths or secrets.
-* Persistence must target PostgreSQL in `prod` (NFR-01). H2 is only for `dev` and tests.
+* Persistence must target PostgreSQL in dev and prod (NFR-01). In-memory H2 is only for tests.
 
 ## Tests
 
