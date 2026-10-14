@@ -32,7 +32,7 @@ Run them from the folder shown. These are the same steps CI runs on every PR to 
 | Lint / format           | —                                      | `npm run lint` / `npm run format`    |
 | Build                   | `mvn -Pprod clean package`             | `npm run build`                      |
 
-* The Maven wrapper is not committed: use `mvn` (CI generates `./mvnw`). JaCoCo runs on every `verify`
+* The Maven wrapper is not committed: use `mvn` (CI also runs `mvn` directly). JaCoCo runs on every `verify`
   (report: `backend/target/site/jacoco/index.html`); there is no `coverage` Maven profile.
 * Full containerized stack (NFR-03): run `docker compose up --build` from the root directory. Copy `.env.example` to `.env` first.
 * The backend needs `ENV_PROTUBE_STORE_DIR` (absolute path, ending in a path separator). Never hardcode paths.
