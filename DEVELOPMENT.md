@@ -45,9 +45,10 @@ python3 main.py --store=/absolute/path/to/videos --id=10 --videos=../../resource
 | `ENV_PROTUBE_STORE_DIR`            | always                  | Absolute path of the video store folder. **End it with a path separator** (`/` or `\`) — it is used as a `file:` prefix to serve `/media/**`. |
 | `ENV_PROTUBE_GOOGLE_CLIENT_ID`     | Google OAuth login      | Google OAuth client id                                                                           |
 | `ENV_PROTUBE_GOOGLE_CLIENT_SECRET` | Google OAuth login      | Google OAuth client secret                                                                       |
-| `ENV_PROTUBE_DB_USER`              | `prod` profile          | Database user (use `sa` with the default H2 datasource)                                          |
-| `ENV_PROTUBE_DB_PWD`               | `prod` profile          | Database password (empty with the default H2 datasource)                                         |
-| `ENV_PROTUBE_DB`                   | `prod` + PostgreSQL     | PostgreSQL database name (see [Using PostgreSQL](#using-postgresql))                              |
+| `ENV_PROTUBE_DB_USER`              | `dev` and `prod`        | PostgreSQL database user                                                                         |
+| `ENV_PROTUBE_DB_PASS`              | `dev` and `prod`        | PostgreSQL database password                                                                     |
+| `ENV_PROTUBE_DB`                   | `dev` and `prod`        | PostgreSQL database name (see [Using PostgreSQL](#using-postgresql))                              |
+| `ENV_PROTUBE_DB_HOST`              | optional (`localhost`)  | PostgreSQL database host (defaults to `localhost`)                                               |
 
 Never commit real secrets. Set them in your shell, your OS, or your (local, uncommitted) IDE run configuration.
 
@@ -77,8 +78,7 @@ mvn spring-boot:run
 ```
 
 * Starts on **http://localhost:8080** with the `dev` profile (active by default through the Maven `dev` profile).
-* `dev` uses an in-memory H2 database and loads initial data (`pro_tube.load_initial_data=true`). All data is lost
-  on restart.
+* `dev` persists data in PostgreSQL (start it with `docker compose up -d db`) and validates the schema against Flyway migrations (`ddl-auto=validate`). Initial test data loading is controlled by `pro_tube.load_initial_data`. Unit/slice tests use an in-memory database with PostgreSQL compatibility mode.
 * From IntelliJ you can instead use the shared **ProtubeBackApplication** run configuration (`.run/`) — edit its
   environment variables to point to your own store folder.
 * CORS is open for `/api/**` and `/auth/**`, so the Vite dev server can call the API directly.
@@ -166,7 +166,7 @@ java -jar target/protube-back-0.0.1-SNAPSHOT.jar
 ```
 
 (IntelliJ: the **Create jar** run configuration runs `package` with the `prod` profile.) Remember that
-`ENV_PROTUBE_STORE_DIR`, `ENV_PROTUBE_DB_USER` and `ENV_PROTUBE_DB_PWD` must be set in the environment where the jar
+`ENV_PROTUBE_STORE_DIR`, `ENV_PROTUBE_DB_USER`, and `ENV_PROTUBE_DB_PASS` must be set in the environment where the jar
 runs.
 
 To only preview the production frontend bundle, without the backend: `cd frontend && npm run build:prod && npm run preview`.
@@ -199,6 +199,19 @@ For running PostgreSQL separately outside Docker Compose:
 1. Start a PostgreSQL server (e.g. `docker run -d --name protube-db -p 5432:5432 -e POSTGRES_USER=root -e POSTGRES_PASSWORD=pwd -e POSTGRES_DB=protube postgres:16`).
 2. Ensure `ENV_PROTUBE_DB_HOST` (e.g. `localhost`), `ENV_PROTUBE_DB` (e.g. `protube`), `ENV_PROTUBE_DB_USER` (e.g. `root`), and `ENV_PROTUBE_DB_PASS` (e.g. `pwd`) are set in your environment.
 
+Both `dev` and `prod` profiles persist data directly in PostgreSQL (NFR-01 in [REQUIREMENT.md](./REQUIREMENT.md)). The schema is automatically managed with Flyway migrations (`src/main/resources/db/migration`), and Hibernate validates the schema (`ddl-auto=validate`).
+
+To run PostgreSQL locally:
+
+1. Start the PostgreSQL container with Docker Compose:
+   ```bash
+   docker compose up -d db
+   ```
+2. Set the required database environment variables:
+   * `ENV_PROTUBE_DB` (e.g. `protube`)
+   * `ENV_PROTUBE_DB_USER` (e.g. `postgres`)
+   * `ENV_PROTUBE_DB_PASS` (e.g. your database password)
+   * `ENV_PROTUBE_DB_HOST` (optional, defaults to `localhost`)
 
 ## 6. Workflow reminders
 
