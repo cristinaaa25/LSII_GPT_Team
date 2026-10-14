@@ -171,15 +171,34 @@ runs.
 
 To only preview the production frontend bundle, without the backend: `cd frontend && npm run build:prod && npm run preview`.
 
+### Run with Docker Compose (NFR-03)
+
+Starts the entire application (PostgreSQL and Spring Boot with bundled frontend) with a single command from the repository root:
+
+1. Copy the environment file template:
+   ```bash
+   cp .env.example .env
+   ```
+   Adjust any values in `.env` if needed (e.g. `ENV_PROTUBE_STORE_DIR` pointing to your local videos directory).
+
+2. Build and start all services:
+   ```bash
+   docker compose up --build
+   ```
+
+* **`db` service:** Runs PostgreSQL 16 on port `5432` with data persisted in a named volume (`postgres_data`). Includes an automated healthcheck via `pg_isready`.
+* **`app` service:** Multi-stage build (`backend/Dockerfile`) that compiles the Spring Boot backend and bundles the React frontend using Maven `-Pprod`, running on Java 21 JRE. Waits until `db` is healthy before starting. Maps port `8080` to the host and mounts the video store directory as a volume (`/videos/`).
+* Open **http://localhost:8080** in your browser.
+* To stop all containers: `docker compose down`.
+
 ### Using PostgreSQL
 
-The `prod` profile still points to an in-memory H2 database, which is only a placeholder — the MVP requires a real
-database (NFR-01 in [REQUIREMENT.md](./REQUIREMENT.md)). The PostgreSQL driver is already a dependency. To switch:
+The `prod` profile targets PostgreSQL (NFR-01 in [REQUIREMENT.md](./REQUIREMENT.md)). When running with Docker Compose, this is set up automatically.
 
-1. Start a PostgreSQL server (e.g. `docker run -d --name protube-db -p 5432:5432 -e POSTGRES_PASSWORD=secret -e POSTGRES_DB=protube postgres:16`).
-2. In `backend/src/main/resources/application.properties`, in the `prod` section, uncomment the PostgreSQL
-   `spring.datasource.url` line and remove the H2 one.
-3. Set `ENV_PROTUBE_DB` (e.g. `protube`), `ENV_PROTUBE_DB_USER` (e.g. `postgres`) and `ENV_PROTUBE_DB_PWD`.
+For running PostgreSQL separately outside Docker Compose:
+1. Start a PostgreSQL server (e.g. `docker run -d --name protube-db -p 5432:5432 -e POSTGRES_USER=root -e POSTGRES_PASSWORD=pwd -e POSTGRES_DB=protube postgres:16`).
+2. Ensure `ENV_PROTUBE_DB_HOST` (e.g. `localhost`), `ENV_PROTUBE_DB` (e.g. `protube`), `ENV_PROTUBE_DB_USER` (e.g. `root`), and `ENV_PROTUBE_DB_PASS` (e.g. `pwd`) are set in your environment.
+
 
 ## 6. Workflow reminders
 
