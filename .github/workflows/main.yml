@@ -1,4 +1,4 @@
-name: Pull Request CI
+name: CI Pipeline
 
 on:
   pull_request:
@@ -9,9 +9,11 @@ on:
     branches:
       - main
       - develop
+  workflow_dispatch:
 
 jobs:
-  build-and-test:
+  frontend:
+    name: Frontend
     runs-on: ubuntu-latest
 
     steps:
@@ -22,10 +24,16 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
 
       - name: Install frontend dependencies
         working-directory: frontend
         run: npm ci
+
+      - name: Run frontend lint
+        working-directory: frontend
+        run: npm run lint
 
       - name: Build frontend
         working-directory: frontend
@@ -35,26 +43,6 @@ jobs:
         working-directory: frontend
         run: npm run test -- --coverage --watchAll=false --ci
 
-      - name: Set up Java for backend
-        uses: actions/setup-java@v5
-        with:
-          distribution: 'corretto'
-          java-version: '21'
-
-      - name: Install Maven Wrapper
-        working-directory: backend
-        run: mvn -N io.takari:maven:wrapper
-
-      - name: Build and test backend with coverage
-        working-directory: backend
-        run: |
-          ./mvnw clean verify -Pcoverage
-
-      - name: Run frontend lint
-        working-directory: frontend
-        run: npm run lint
-
-      # Upload Frontend Coverage
       - name: Upload Frontend Coverage Report
         uses: actions/upload-artifact@v4
         with:
@@ -62,10 +50,68 @@ jobs:
           path: frontend/coverage/
           if-no-files-found: error
 
-      # Upload Backend Coverage
+  backend:
+    name: Backend
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Java for backend
+        uses: actions/setup-java@v5
+        with:
+          distribution: 'corretto'
+          java-version: '21'
+          cache: 'maven'
+
+      - name: Build and test backend
+        working-directory: backend
+        run: mvn clean verify
+
       - name: Upload Backend Coverage Report
         uses: actions/upload-artifact@v4
         with:
           name: backend-coverage-report
           path: backend/target/site/jacoco/
           if-no-files-found: error
+
+  docker:
+    name: Docker Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Set up environment file
+        run: cp .env.example .env
+
+      - name: Validate Docker Compose configuration
+        run: docker compose config
+
+      - name: Build Docker images
+        run: docker compose build
+
+  e2e:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run E2E tests
+        run: |
+          if [ -f "frontend/cypress.config.ts" ] || [ -f "cypress.config.ts" ] || [ -f "frontend/cypress.config.js" ] || [ -f "cypress.config.js" ] || grep -q '"test:e2e"' frontend/package.json 2>/dev/null; then
+            echo "Running frontend E2E tests..."
+            npm --prefix frontend run test:e2e
+          elif find backend/src/test -name "*.feature" 2>/dev/null | grep -q .; then
+            echo "Running backend Cucumber E2E tests..."
+            mvn -f backend/pom.xml test -Dcucumber.filter.tags="@e2e"
+          else
+            echo "E2E test suite (NFR-02) not configured yet. Placeholder passing until US/NFR-02 is implemented."
+          fi

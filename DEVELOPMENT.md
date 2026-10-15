@@ -110,7 +110,7 @@ cd backend
 mvn clean verify                          # build + all tests
 mvn test -Dtest=ClassName                 # one test class
 mvn test -Dtest=ClassName#methodName      # one test method
-mvn clean verify -Pcoverage               # tests + JaCoCo report → target/site/jacoco/index.html
+mvn clean verify                          # tests + JaCoCo report → target/site/jacoco/index.html
 ```
 
 ### Frontend
@@ -130,9 +130,10 @@ The MVP requires **more than 50% coverage** on both apps.
 
 `.github/workflows/main.yml` runs on every PR and push to `develop` and `main`:
 
-1. Frontend: `npm ci` → `npm run build` → `npm run test` → `npm run lint`
-2. Backend: `./mvnw clean verify -Pcoverage`
-3. Uploads both coverage reports as build artifacts.
+1. **Frontend (`Frontend`):** `npm ci` → `npm run lint` → `npm run build` → `npm run test` (with npm caching and coverage thresholds; uploads `frontend-coverage-report`).
+2. **Backend (`Backend`):** `mvn clean verify` (with Maven caching and JaCoCo coverage thresholds; uploads `backend-coverage-report`).
+3. **Docker (`Docker Build`):** `docker compose config` → `docker compose build` (validates containerized delivery and multi-stage Docker build).
+4. **E2E (`E2E Tests`):** runs E2E test suite (NFR-02) when configured.
 
 Before opening a PR, run the same steps locally so the pipeline stays green.
 
