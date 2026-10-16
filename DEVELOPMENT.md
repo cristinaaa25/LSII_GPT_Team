@@ -78,7 +78,7 @@ mvn spring-boot:run
 ```
 
 * Starts on **http://localhost:8080** with the `dev` profile (active by default through the Maven `dev` profile).
-* `dev` persists data in PostgreSQL (start it with `docker compose up -d db`) and validates the schema against Flyway migrations (`ddl-auto=validate`). Initial test data loading is controlled by `pro_tube.load_initial_data`. Unit/slice tests use an in-memory database with PostgreSQL compatibility mode.
+* `dev` persists data in PostgreSQL (start it with `docker compose up -d db`) and validates the schema against Flyway migrations (`ddl-auto=validate`). Initial test data loading is controlled by `pro_tube.load_initial_data`: when `true` (default in `dev`), every `<id>.json` in the store folder is imported on startup with its comments and a placeholder author per channel/commenter. The import is idempotent (videos already imported, matched by store id, are skipped). Unit/slice tests use an in-memory database with PostgreSQL compatibility mode.
 * From IntelliJ you can instead use the shared **ProtubeBackApplication** run configuration (`.run/`) — edit its
   environment variables to point to your own store folder.
 * CORS is open for `/api/**` and `/auth/**`, so the Vite dev server can call the API directly.
@@ -188,7 +188,7 @@ Starts the entire application (PostgreSQL and Spring Boot with bundled frontend)
    ```
 
 * **`db` service:** Runs PostgreSQL 16 on port `5432` with data persisted in a named volume (`postgres_data`). Includes an automated healthcheck via `pg_isready`.
-* **`app` service:** Multi-stage build (`backend/Dockerfile`) that compiles the Spring Boot backend and bundles the React frontend using Maven `-Pprod`, running on Java 21 JRE. Waits until `db` is healthy before starting. Maps port `8080` to the host and mounts the video store directory as a volume (`/videos/`).
+* **`app` service:** Multi-stage build (`backend/Dockerfile`) that compiles the Spring Boot backend and bundles the React frontend using Maven `-Pprod`, running on Java 21 JRE. Waits until `db` is healthy before starting. Maps port `8080` to the host and mounts the video store directory as a volume (`/videos/`). It sets `PRO_TUBE_LOAD_INITIAL_DATA: "true"`, which overrides `pro_tube.load_initial_data=false` from the `prod` profile, so the video store is imported on startup (idempotently) and the catalog is not empty.
 * Open **http://localhost:8080** in your browser.
 * To stop all containers: `docker compose down`.
 

@@ -2,6 +2,8 @@ package com.tecnocampus.LS2.protube_back.domain;
 
 import jakarta.persistence.*;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 
 @Entity
@@ -39,6 +41,26 @@ public class Video {
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
+
+    // Id of the video in the store folder (<storeId>.mp4/.webp/.json); null for user uploads
+    @Column(name = "store_id", unique = true)
+    private Long storeId;
+
+    @Column(name = "view_count", nullable = false)
+    private Long viewCount = 0L;
+
+    @Column(name = "like_count", nullable = false)
+    private Long likeCount = 0L;
+
+    @ElementCollection
+    @CollectionTable(name = "video_categories", joinColumns = @JoinColumn(name = "video_id"))
+    @Column(name = "category", nullable = false)
+    private List<String> categories = new ArrayList<>();
+
+    @ElementCollection
+    @CollectionTable(name = "video_tags", joinColumns = @JoinColumn(name = "video_id"))
+    @Column(name = "tag", nullable = false)
+    private List<String> tags = new ArrayList<>();
 
     public Video() {
     }
@@ -140,6 +162,46 @@ public class Video {
 
     public void setCreatedAt(Instant createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public Long getStoreId() {
+        return storeId;
+    }
+
+    public void setStoreId(Long storeId) {
+        this.storeId = storeId;
+    }
+
+    public Long getViewCount() {
+        return viewCount;
+    }
+
+    public void setViewCount(Long viewCount) {
+        this.viewCount = viewCount;
+    }
+
+    public Long getLikeCount() {
+        return likeCount;
+    }
+
+    public void setLikeCount(Long likeCount) {
+        this.likeCount = likeCount;
+    }
+
+    public List<String> getCategories() {
+        return categories;
+    }
+
+    public void setCategories(List<String> categories) {
+        this.categories = categories;
+    }
+
+    public List<String> getTags() {
+        return tags;
+    }
+
+    public void setTags(List<String> tags) {
+        this.tags = tags;
     }
 
     @Override
