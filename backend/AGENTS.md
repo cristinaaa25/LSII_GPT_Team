@@ -28,5 +28,10 @@ Base package `com.tecnocampus.LS2.protube_back`:
 * Unit test services with Mockito mocks; test controllers with `@WebMvcTest` + `MockMvc`.
 * `@SpringBootTest` only for wiring/integration; pass `pro_tube.store.dir` as a property (see
   `ProtubeBackApplicationTests`).
+* Integration tests (`@SpringBootTest`, `@DataJpaTest`, ...) must use `@ActiveProfiles("test")` so they run on H2
+  instead of trying to connect to PostgreSQL.
+* Portable SQL: tests run on H2 in PostgreSQL mode, production on PostgreSQL. Queries and Flyway migrations must
+  work on both: no `ILIKE`, array types or full-text search. Use `LIKE` with `LOWER()` for case-insensitive search
+  and a separate table for tags.
 * Test classes mirror the main package and end in `Test`.
 * JaCoCo fails the build below 50% line coverage per class or 75% for the bundle: add tests with every new class.

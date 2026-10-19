@@ -1,6 +1,6 @@
 # Shared AI configuration for the repository
 
-**Approved on:** pending (PR feature/ai-config)
+**Approved on:** 2026-10-07 (PR #2)
 **Approved by:** <team members / PR link>
 **Used for:** creating or updating the team's AI configuration (AGENTS.md, nested rules, skills, reviewer agent)
 
