@@ -60,7 +60,10 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/videos", "/api/videos/**").permitAll()
                         .requestMatchers("/media/**").permitAll()
-                        .requestMatchers("/", "/index.html", "/static/**", "/resources/**", "/favicon.ico", "/error").permitAll()
+                        .requestMatchers("/error").permitAll()
+                        .requestMatchers("/api/**").authenticated()
+                        // SPA: static files (/assets/**) and client-side routes (/login, /register...)
+                        .requestMatchers(HttpMethod.GET, "/**").permitAll()
                         .anyRequest().authenticated()
                 );
 
