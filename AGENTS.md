@@ -92,3 +92,6 @@ Mistakes the agent has repeated. Add new ones after each sprint retrospective.
   `ENV_PROTUBE_DB_PASS` (not `_PWD`). Trust `application.properties` over older docs.
 * Frontend tests mock `src/utils/Env` globally in `jest.setup.ts`: do not call `import.meta.env` directly in code
   under test.
+* The jar serves the React SPA: `SecurityConfig` permits every GET outside `/api` and `IndexController` forwards
+  client-side routes to `index.html`. Protect new endpoints under `/api/**`; test the jar (`localhost:8080`),
+  not only Vite, before closing a story.

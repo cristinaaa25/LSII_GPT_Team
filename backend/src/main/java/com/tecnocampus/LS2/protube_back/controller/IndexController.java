@@ -8,7 +8,10 @@ import org.springframework.web.servlet.ModelAndView;
 @Controller
 public class IndexController {
 
-    @GetMapping("")
+    // React SPA client-side routes (/login, /videos/42...): any path without a dot outside /api serves index.html
+    private static final String SPA_SEGMENT = "{path:^(?!api$)[^.]*}";
+
+    @GetMapping({"", "/", "/" + SPA_SEGMENT, "/" + SPA_SEGMENT + "/{subPath:[^.]*}"})
     public ModelAndView home() {
         return new ModelAndView("index");
     }
