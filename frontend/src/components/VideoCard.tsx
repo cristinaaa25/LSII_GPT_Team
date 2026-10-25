@@ -1,3 +1,5 @@
+import React from 'react';
+import { Link, useInRouterContext } from 'react-router-dom';
 import type { VideoSummary } from '../types/video';
 import { getEnv } from '../utils/Env';
 import { formatDuration, formatViews } from '../utils/format';
@@ -6,10 +8,11 @@ interface Props {
   video: VideoSummary;
 }
 
-const VideoCard = ({ video }: Props) => {
+const VideoCard: React.FC<Props> = ({ video }) => {
+  const inRouter = useInRouterContext();
   const duration = formatDuration(video.duration);
 
-  return (
+  const cardContent = (
     <article className="card h-100 shadow-sm" aria-label={video.title}>
       <div className="position-relative">
         <div className="ratio ratio-16x9 bg-dark rounded-top overflow-hidden">
@@ -36,6 +39,20 @@ const VideoCard = ({ video }: Props) => {
         <p className="card-text text-body-secondary small">{formatViews(video.views)}</p>
       </div>
     </article>
+  );
+
+  if (inRouter) {
+    return (
+      <Link to={`/videos/${video.id}`} className="text-decoration-none text-reset d-block h-100">
+        {cardContent}
+      </Link>
+    );
+  }
+
+  return (
+    <a href={`/videos/${video.id}`} className="text-decoration-none text-reset d-block h-100">
+      {cardContent}
+    </a>
   );
 };
 

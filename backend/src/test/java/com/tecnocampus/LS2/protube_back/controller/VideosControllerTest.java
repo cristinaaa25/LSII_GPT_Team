@@ -2,8 +2,10 @@ package com.tecnocampus.LS2.protube_back.controller;
 
 import com.tecnocampus.LS2.protube_back.configuration.SecurityConfig;
 import com.tecnocampus.LS2.protube_back.dto.PageDto;
+import com.tecnocampus.LS2.protube_back.dto.VideoDetailDto;
 import com.tecnocampus.LS2.protube_back.dto.VideoSummaryDto;
 import com.tecnocampus.LS2.protube_back.exception.InvalidRequestException;
+import com.tecnocampus.LS2.protube_back.exception.NotFoundException;
 import com.tecnocampus.LS2.protube_back.services.VideoService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,11 +15,15 @@ import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.time.Instant;
 import java.util.List;
 
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -76,5 +82,78 @@ class VideosControllerTest {
     void getVideosReturnsBadRequestForNonNumericPage() throws Exception {
         mockMvc.perform(get("/api/videos").param("page", "abc"))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void getVideoReturnsVideoDetailDto() throws Exception {
+        Instant now = Instant.parse("2026-10-25T10:00:00Z");
+        VideoDetailDto detail = new VideoDetailDto(
+                42L,
+                "Funny cats",
+                "Cats playing with yarn",
+                List.of("cats", "funny"),
+                List.of("Animals"),
+                "alice",
+                now,
+                150L,
+                25L,
+                3L,
+                "42.mp4",
+                "42.webp");
+
+        when(videoService.getVideo(42L)).thenReturn(detail);
+
+        mockMvc.perform(get("/api/videos/42"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(42))
+                .andExpect(jsonPath("$.title").value("Funny cats"))
+                .andExpect(jsonPath("$.description").value("Cats playing with yarn"))
+                .andExpect(jsonPath("$.tags[0]").value("cats"))
+                .andExpect(jsonPath("$.tags[1]").value("funny"))
+                .andExpect(jsonPath("$.categories[0]").value("Animals"))
+                .andExpect(jsonPath("$.author").value("alice"))
+                .andExpect(jsonPath("$.views").value(150))
+                .andExpect(jsonPath("$.likes").value(25))
+                .andExpect(jsonPath("$.commentCount").value(3))
+                .andExpect(jsonPath("$.videoUrl").value("42.mp4"))
+                .andExpect(jsonPath("$.thumbnailUrl").value("42.webp"));
+    }
+
+    @Test
+    void getVideoReturns404WhenNotFound() throws Exception {
+        when(videoService.getVideo(999L)).thenThrow(new NotFoundException("Video not found with id 999"));
+
+        mockMvc.perform(get("/api/videos/999"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.detail").value("Video not found with id 999"));
+    }
+
+    @Test
+    void registerViewReturnsOk() throws Exception {
+        doNothing().when(videoService).registerView(42L);
+
+        mockMvc.perform(post("/api/videos/42/views"))
+                .andExpect(status().isOk());
+
+        verify(videoService).registerView(42L);
+    }
+
+    @Test
+    void registerViewReturns404WhenNotFound() throws Exception {
+        doThrow(new NotFoundException("Video not found with id 999")).when(videoService).registerView(999L);
+
+        mockMvc.perform(post("/api/videos/999/views"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.detail").value("Video not found with id 999"));
+    }
+
+    @Test
+    void registerViewWithPlayPathReturnsOk() throws Exception {
+        doNothing().when(videoService).registerView(42L);
+
+        mockMvc.perform(post("/api/videos/42/play"))
+                .andExpect(status().isOk());
+
+        verify(videoService).registerView(42L);
     }
 }
