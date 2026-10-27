@@ -95,3 +95,5 @@ Mistakes the agent has repeated. Add new ones after each sprint retrospective.
 * The jar serves the React SPA: `SecurityConfig` permits every GET outside `/api` and `IndexController` forwards
   client-side routes to `index.html`. Protect new endpoints under `/api/**`; test the jar (`localhost:8080`),
   not only Vite, before closing a story.
+* `MvcConfig` uses `@EnableWebMvc`, so `spring.jackson.*` properties are ignored and `Instant`/dates are sent as
+  epoch numbers. Annotate date fields in DTOs with `@JsonFormat(shape = JsonFormat.Shape.STRING)` (ISO-8601).

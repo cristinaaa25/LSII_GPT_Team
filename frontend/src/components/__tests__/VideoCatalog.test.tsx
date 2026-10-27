@@ -1,5 +1,6 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import axios from 'axios';
+import { MemoryRouter } from 'react-router-dom';
 import VideoCatalog from '../VideoCatalog';
 import type { Page, VideoSummary } from '../../types/video';
 
@@ -34,7 +35,11 @@ describe('VideoCatalog', () => {
   it('shows a loading indicator while the first page loads', async () => {
     mockedGet.mockReturnValue(new Promise(() => {}));
 
-    render(<VideoCatalog />);
+    render(
+      <MemoryRouter>
+        <VideoCatalog />
+      </MemoryRouter>
+    );
 
     expect(screen.getByRole('status')).toHaveTextContent('Loading videos...');
   });
@@ -42,7 +47,11 @@ describe('VideoCatalog', () => {
   it('renders a card per video with thumbnail, title, author and duration', async () => {
     mockedGet.mockResolvedValueOnce(page([1, 2], 0, true));
 
-    render(<VideoCatalog pageSize={2} />);
+    render(
+      <MemoryRouter>
+        <VideoCatalog pageSize={2} />
+      </MemoryRouter>
+    );
 
     expect(await screen.findByRole('heading', { name: 'Video 1' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Video 2' })).toBeInTheDocument();
@@ -56,7 +65,11 @@ describe('VideoCatalog', () => {
   it('loads and appends the next page when clicking "Load more"', async () => {
     mockedGet.mockResolvedValueOnce(page([1, 2], 0, false)).mockResolvedValueOnce(page([3, 4], 1, true));
 
-    render(<VideoCatalog pageSize={2} />);
+    render(
+      <MemoryRouter>
+        <VideoCatalog pageSize={2} />
+      </MemoryRouter>
+    );
     fireEvent.click(await screen.findByRole('button', { name: 'Load more' }));
 
     expect(await screen.findByRole('heading', { name: 'Video 4' })).toBeInTheDocument();
@@ -75,7 +88,11 @@ describe('VideoCatalog', () => {
     }) as unknown as typeof IntersectionObserver;
     mockedGet.mockResolvedValueOnce(page([1, 2], 0, false)).mockResolvedValueOnce(page([3, 4], 1, true));
 
-    render(<VideoCatalog pageSize={2} />);
+    render(
+      <MemoryRouter>
+        <VideoCatalog pageSize={2} />
+      </MemoryRouter>
+    );
     await screen.findByRole('heading', { name: 'Video 1' });
 
     act(() => trigger(false));
@@ -94,7 +111,11 @@ describe('VideoCatalog', () => {
       data: { content: [], page: 0, size: 12, totalElements: 0, totalPages: 0, last: true },
     });
 
-    render(<VideoCatalog />);
+    render(
+      <MemoryRouter>
+        <VideoCatalog />
+      </MemoryRouter>
+    );
 
     expect(await screen.findByText('No videos available yet.')).toBeInTheDocument();
   });
@@ -102,7 +123,11 @@ describe('VideoCatalog', () => {
   it('shows an error and retries the same page', async () => {
     mockedGet.mockRejectedValueOnce(new Error('Network Error')).mockResolvedValueOnce(page([1, 2], 0, true));
 
-    render(<VideoCatalog pageSize={2} />);
+    render(
+      <MemoryRouter>
+        <VideoCatalog pageSize={2} />
+      </MemoryRouter>
+    );
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Error loading videos: Network Error');
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
@@ -115,7 +140,11 @@ describe('VideoCatalog', () => {
   it('shows a generic message for non-Error failures', async () => {
     mockedGet.mockRejectedValueOnce('boom');
 
-    render(<VideoCatalog />);
+    render(
+      <MemoryRouter>
+        <VideoCatalog />
+      </MemoryRouter>
+    );
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Unknown error');
   });

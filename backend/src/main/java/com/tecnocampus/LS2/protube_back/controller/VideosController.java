@@ -34,7 +34,7 @@ public class VideosController {
         return ResponseEntity.ok(videoService.getVideo(id));
     }
 
-    @PostMapping(path = {"/{id}/views", "/{id}/play", "/{id}/view"})
+    @PostMapping("/{id}/views")
     public ResponseEntity<Void> registerView(@PathVariable Long id) {
         videoService.registerView(id);
         return ResponseEntity.ok().build();

@@ -8,6 +8,7 @@ const resolveMediaUrl = (value: string | undefined, fallback: string): string =>
   if (!value) return `${getEnv().MEDIA_BASE_URL}/${fallback}`;
 
   const normalized = value.trim();
+  if (/^https?:\/\//i.test(normalized)) return normalized;
 
   return `${getEnv().MEDIA_BASE_URL}/${normalized.replace(/^\//, '')}`;
 };
@@ -28,7 +29,19 @@ const VideoDetailPage: React.FC = () => {
     );
   }
 
-  if (notFound || error || !video) {
+  if (error) {
+    return (
+      <div className="alert alert-danger my-4 text-center" role="alert">
+        <h2 className="h4 alert-heading">Could not load video</h2>
+        <p className="mb-3">Something went wrong while loading this video. Please try again later.</p>
+        <Link to="/" className="btn btn-primary">
+          Back to catalog
+        </Link>
+      </div>
+    );
+  }
+
+  if (notFound || !video) {
     return (
       <div className="alert alert-warning my-4 text-center" role="alert">
         <h2 className="h4 alert-heading">Video Not Found</h2>

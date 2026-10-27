@@ -112,6 +112,7 @@ class VideosControllerTest {
                 .andExpect(jsonPath("$.tags[1]").value("funny"))
                 .andExpect(jsonPath("$.categories[0]").value("Animals"))
                 .andExpect(jsonPath("$.author").value("alice"))
+                .andExpect(jsonPath("$.uploadDate").value("2026-10-25T10:00:00Z"))
                 .andExpect(jsonPath("$.views").value(150))
                 .andExpect(jsonPath("$.likes").value(25))
                 .andExpect(jsonPath("$.commentCount").value(3))
@@ -145,15 +146,5 @@ class VideosControllerTest {
         mockMvc.perform(post("/api/videos/999/views"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.detail").value("Video not found with id 999"));
-    }
-
-    @Test
-    void registerViewWithPlayPathReturnsOk() throws Exception {
-        doNothing().when(videoService).registerView(42L);
-
-        mockMvc.perform(post("/api/videos/42/play"))
-                .andExpect(status().isOk());
-
-        verify(videoService).registerView(42L);
     }
 }

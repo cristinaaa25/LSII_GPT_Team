@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import axios from 'axios';
 import type { VideoDetail } from '../types/video';
 import { getEnv } from '../utils/Env';
@@ -16,6 +16,8 @@ export function useVideoDetail(id: string | undefined): UseVideoDetailReturn {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [notFound, setNotFound] = useState<boolean>(false);
+  // Only the first play on each page load counts as a view (pause/resume must not inflate analytics).
+  const viewRegistered = useRef(false);
 
   useEffect(() => {
     if (!id) {
@@ -25,6 +27,7 @@ export function useVideoDetail(id: string | undefined): UseVideoDetailReturn {
     }
 
     let isMounted = true;
+    viewRegistered.current = false;
     setLoading(true);
     setError(null);
     setNotFound(false);
@@ -55,7 +58,8 @@ export function useVideoDetail(id: string | undefined): UseVideoDetailReturn {
   }, [id]);
 
   const registerView = useCallback(async () => {
-    if (!id) return;
+    if (!id || viewRegistered.current) return;
+    viewRegistered.current = true;
     try {
       await axios.post(`${getEnv().API_BASE_URL}/videos/${id}/views`);
       setVideo((prev) => (prev ? { ...prev, views: prev.views + 1 } : prev));
