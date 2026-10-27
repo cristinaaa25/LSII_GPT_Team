@@ -65,7 +65,7 @@ public class VideoService {
         }
         Video video = videoRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Video not found with id " + id));
-        long commentCount = commentRepository != null ? commentRepository.countByVideoId(id) : 0L;
+        long commentCount = commentRepository.countByVideoId(id);
         return toDetail(video, commentCount);
     }
 
@@ -78,18 +78,13 @@ public class VideoService {
                 .orElseThrow(() -> new NotFoundException("Video not found with id " + id));
 
         User viewer = findCurrentAuthenticatedUser();
-        if (videoViewRepository != null) {
-            VideoView view = viewer != null ? new VideoView(video, viewer) : new VideoView(video);
-            videoViewRepository.save(view);
-        }
+        VideoView view = viewer != null ? new VideoView(video, viewer) : new VideoView(video);
+        videoViewRepository.save(view);
         video.setViewCount(video.getViewCount() + 1);
         videoRepository.save(video);
     }
 
     private User findCurrentAuthenticatedUser() {
-        if (userRepository == null) {
-            return null;
-        }
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth == null || !auth.isAuthenticated() || "anonymousUser".equals(auth.getPrincipal())) {
             return null;

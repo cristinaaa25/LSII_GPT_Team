@@ -1,7 +1,7 @@
 # Fix: serve the React SPA behind Spring Security
 
-**Approved on:** pending (PR #<n>)
-**Approved by:** <team members / PR link>
+**Approved on:** 2026-10-23 (PR #9)
+**Approved by:** team review in PR #9
 **Used for:** fixing access rules when the packaged jar (Docker, `localhost:8080`) serves the frontend and the page
 comes out blank, or a client-side route returns 401/404, after a change to `SecurityConfig`.
 

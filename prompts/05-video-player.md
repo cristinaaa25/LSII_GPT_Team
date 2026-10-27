@@ -1,7 +1,7 @@
 # Video player: play a video and view its details (US-05)
 
-**Approved on:** pending (PR #<n>)
-**Approved by:** <team members / PR link>
+**Approved on:** 2026-10-27 (PR #10)
+**Approved by:** team review in PR #10
 **Used for:** full-stack feature implementing video playback, video details, view registration, and not-found handling (backend REST endpoints + React player page + tests).
 
 ## Prompt

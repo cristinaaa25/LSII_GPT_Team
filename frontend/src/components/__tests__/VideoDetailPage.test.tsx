@@ -109,6 +109,22 @@ describe('VideoDetailPage', () => {
     expect(screen.getByText('1.2K views')).toBeInTheDocument();
   });
 
+  it('registers only one view per page load when playback is paused and resumed', async () => {
+    mockedGet.mockResolvedValueOnce({ data: sampleVideo });
+    mockedPost.mockResolvedValue({});
+
+    renderWithRoute();
+
+    const videoEl = await screen.findByLabelText('Amazing Nature');
+    await act(async () => {
+      fireEvent.play(videoEl);
+      fireEvent.pause(videoEl);
+      fireEvent.play(videoEl);
+    });
+
+    expect(mockedPost).toHaveBeenCalledTimes(1);
+  });
+
   it('keeps absolute media URLs as-is and does not double-prefix them', async () => {
     mockedGet.mockResolvedValueOnce({
       data: {
@@ -141,11 +157,12 @@ describe('VideoDetailPage', () => {
     expect(screen.queryByLabelText('Amazing Nature')).not.toBeInTheDocument();
   });
 
-  it('shows not-found state on general API error', async () => {
+  it('shows a generic error state on non-404 API errors', async () => {
     mockedGet.mockRejectedValueOnce(new Error('Network Error'));
 
     renderWithRoute('/videos/error-id');
 
-    expect(await screen.findByRole('heading', { name: 'Video Not Found' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Could not load video' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Video Not Found' })).not.toBeInTheDocument();
   });
 });
