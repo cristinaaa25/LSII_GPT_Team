@@ -1,4 +1,4 @@
-import { formatDuration, formatViews } from '../format';
+import { formatDate, formatDuration, formatViews } from '../format';
 
 describe('formatDuration', () => {
   it('formats minutes and seconds', () => {
@@ -24,5 +24,18 @@ describe('formatViews', () => {
     expect(formatViews(999)).toBe('999 views');
     expect(formatViews(1234)).toBe('1.2K views');
     expect(formatViews(2_500_000)).toBe('2.5M views');
+  });
+});
+
+describe('formatDate', () => {
+  it('formats valid ISO date strings', () => {
+    const formatted = formatDate('2024-05-15T10:00:00Z');
+    expect(formatted).toMatch(/May 15, 2024/);
+  });
+
+  it('returns empty string for null, undefined or invalid dates', () => {
+    expect(formatDate(null)).toBe('');
+    expect(formatDate(undefined)).toBe('');
+    expect(formatDate('invalid-date')).toBe('');
   });
 });

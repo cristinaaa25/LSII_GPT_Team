@@ -13,3 +13,15 @@ export function formatViews(views: number): string {
   const compact = new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 }).format(views);
   return `${compact} ${views === 1 ? 'view' : 'views'}`;
 }
+
+/** Formats an ISO date string to a human-readable date. */
+export function formatDate(dateString: string | null | undefined): string {
+  if (!dateString) return '';
+  const date = new Date(dateString);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  });
+}
