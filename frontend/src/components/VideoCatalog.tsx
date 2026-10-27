@@ -4,10 +4,13 @@ import VideoCard from './VideoCard';
 
 interface Props {
   pageSize?: number;
+  /** When set, shows search results for this query instead of the whole catalog. */
+  query?: string;
+  emptyMessage?: string;
 }
 
-const VideoCatalog = ({ pageSize }: Props) => {
-  const { videos, loading, error, hasMore, loadMore } = useVideos(pageSize);
+const VideoCatalog = ({ pageSize, query, emptyMessage = 'No videos available yet.' }: Props) => {
+  const { videos, loading, error, hasMore, loadMore } = useVideos(pageSize, query);
   const sentinelRef = useRef<HTMLDivElement>(null);
 
   // Infinite scroll: load the next page when the sentinel below the grid becomes visible
@@ -35,7 +38,7 @@ const VideoCatalog = ({ pageSize }: Props) => {
   }
 
   if (!loading && !error && videos.length === 0) {
-    return <p className="text-center text-body-secondary py-5">No videos available yet.</p>;
+    return <p className="text-center text-body-secondary py-5">{emptyMessage}</p>;
   }
 
   return (

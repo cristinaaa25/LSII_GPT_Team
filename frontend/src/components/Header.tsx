@@ -1,11 +1,19 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 
 export const Header: React.FC = () => {
   const { user, isAuthenticated, logout } = useAuth();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  // Starts with the current ?q= so the box still shows the query after reloading /search
+  const [searchText, setSearchText] = useState(searchParams.get('q') ?? '');
+
+  const handleSearch = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    navigate(`/search?q=${encodeURIComponent(searchText.trim())}`);
+  };
 
   const handleLogout = async () => {
     setDropdownOpen(false);
@@ -26,6 +34,20 @@ export const Header: React.FC = () => {
             className="App-logo"
           />
         </Link>
+
+        <form className="d-flex flex-grow-1 mx-3" role="search" onSubmit={handleSearch} style={{ maxWidth: '520px' }}>
+          <input
+            type="search"
+            className="form-control me-2"
+            placeholder="Search videos"
+            aria-label="Search videos"
+            value={searchText}
+            onChange={(event) => setSearchText(event.target.value)}
+          />
+          <button type="submit" className="btn btn-outline-light">
+            Search
+          </button>
+        </form>
 
         <div className="d-flex align-items-center gap-3">
           {isAuthenticated && user ? (

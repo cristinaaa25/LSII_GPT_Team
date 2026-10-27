@@ -22,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 @Service
 public class VideoService {
@@ -48,14 +49,39 @@ public class VideoService {
 
     @Transactional(readOnly = true)
     public PageDto<VideoSummaryDto> getVideos(int page, int size) {
+        validatePage(page, size);
+        return PageDto.from(videoRepository.findAllBy(PageRequest.of(page, size, NEWEST_FIRST))
+                .map(VideoService::toSummary));
+    }
+
+    /** Ranked search over title, tags and description; a blank query returns the whole catalog. */
+    @Transactional(readOnly = true)
+    public PageDto<VideoSummaryDto> searchVideos(String query, int page, int size) {
+        validatePage(page, size);
+        if (query == null || query.isBlank()) {
+            return getVideos(page, size);
+        }
+        // The query already orders by relevance, so the page request must stay unsorted
+        return PageDto.from(videoRepository.search(toLikePattern(query), PageRequest.of(page, size))
+                .map(VideoService::toSummary));
+    }
+
+    /** Lower-cases the query, escapes LIKE wildcards so they match literally and wraps it in {@code %}. */
+    static String toLikePattern(String query) {
+        String escaped = query.trim().toLowerCase(Locale.ROOT)
+                .replace("\\", "\\\\")
+                .replace("%", "\\%")
+                .replace("_", "\\_");
+        return "%" + escaped + "%";
+    }
+
+    private static void validatePage(int page, int size) {
         if (page < 0) {
             throw new InvalidRequestException("page must be greater than or equal to 0");
         }
         if (size < 1 || size > MAX_PAGE_SIZE) {
             throw new InvalidRequestException("size must be between 1 and " + MAX_PAGE_SIZE);
         }
-        return PageDto.from(videoRepository.findAllBy(PageRequest.of(page, size, NEWEST_FIRST))
-                .map(VideoService::toSummary));
     }
 
     @Transactional(readOnly = true)

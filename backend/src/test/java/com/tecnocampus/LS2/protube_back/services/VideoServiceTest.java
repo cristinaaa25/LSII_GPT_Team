@@ -20,6 +20,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -34,6 +35,8 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -107,6 +110,57 @@ class VideoServiceTest {
         assertThatThrownBy(() -> videoService.getVideos(0, VideoService.MAX_PAGE_SIZE + 1))
                 .isInstanceOf(InvalidRequestException.class);
         verifyNoInteractions(videoRepository);
+    }
+
+    @Test
+    void searchVideosPassesEscapedPatternAndUnsortedPageAndMapsResults() {
+        Video video = new Video("Cats", "desc", "42.mp4", "42.webp", 30.5, 1920, 1080,
+                new User("channel", "c@example.com", "!"));
+        video.setId(7L);
+        video.setViewCount(5L);
+        when(videoRepository.search("%cat%", PageRequest.of(1, 5)))
+                .thenReturn(new PageImpl<>(List.of(video), PageRequest.of(1, 5), 6));
+
+        PageDto<VideoSummaryDto> result = videoService.searchVideos("  CAT ", 1, 5);
+
+        assertThat(result.content()).containsExactly(new VideoSummaryDto(7L, "Cats", "channel", 30.5, 5L, "42.webp"));
+        assertThat(result.totalElements()).isEqualTo(6);
+    }
+
+    @Test
+    void searchVideosReturnsEmptyPageWhenNothingMatches() {
+        when(videoRepository.search("%zzz%", PageRequest.of(0, 12))).thenReturn(Page.empty(PageRequest.of(0, 12)));
+
+        PageDto<VideoSummaryDto> result = videoService.searchVideos("zzz", 0, 12);
+
+        assertThat(result.content()).isEmpty();
+        assertThat(result.totalElements()).isZero();
+    }
+
+    @Test
+    void searchVideosWithBlankQueryReturnsTheWholeCatalog() {
+        when(videoRepository.findAllBy(any(Pageable.class))).thenReturn(new PageImpl<>(List.of()));
+
+        videoService.searchVideos("   ", 0, 12);
+        videoService.searchVideos(null, 0, 12);
+
+        verify(videoRepository, times(2)).findAllBy(
+                PageRequest.of(0, 12, Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("id"))));
+        verify(videoRepository, never()).search(any(), any());
+    }
+
+    @Test
+    void searchVideosRejectsInvalidPagination() {
+        assertThatThrownBy(() -> videoService.searchVideos("cat", -1, 12))
+                .isInstanceOf(InvalidRequestException.class);
+        assertThatThrownBy(() -> videoService.searchVideos("", 0, 0))
+                .isInstanceOf(InvalidRequestException.class);
+        verifyNoInteractions(videoRepository);
+    }
+
+    @Test
+    void toLikePatternEscapesWildcards() {
+        assertThat(VideoService.toLikePattern("50%_off\\")).isEqualTo("%50\\%\\_off\\\\%");
     }
 
     @Test

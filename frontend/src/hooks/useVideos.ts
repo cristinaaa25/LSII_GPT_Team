@@ -5,8 +5,12 @@ import type { Page, VideoSummary } from '../types/video';
 
 export const DEFAULT_PAGE_SIZE = 12;
 
-/** Loads the video catalog page by page; call `loadMore` to append the next page. */
-export function useVideos(pageSize = DEFAULT_PAGE_SIZE) {
+/**
+ * Loads the video catalog page by page; call `loadMore` to append the next page.
+ * With a `query` it loads ranked search results instead. The query is read once: remount
+ * (e.g. with `key={query}`) to start a new search.
+ */
+export function useVideos(pageSize = DEFAULT_PAGE_SIZE, query?: string) {
   const [videos, setVideos] = useState<VideoSummary[]>([]);
   const [nextPage, setNextPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
@@ -22,9 +26,14 @@ export function useVideos(pageSize = DEFAULT_PAGE_SIZE) {
     setLoading(true);
     setError(null);
     try {
-      const { data } = await axios.get<Page<VideoSummary>>(`${getEnv().API_BASE_URL}/videos`, {
-        params: { page: nextPage, size: pageSize },
-      });
+      const { data } =
+        query === undefined
+          ? await axios.get<Page<VideoSummary>>(`${getEnv().API_BASE_URL}/videos`, {
+              params: { page: nextPage, size: pageSize },
+            })
+          : await axios.get<Page<VideoSummary>>(`${getEnv().API_BASE_URL}/videos/search`, {
+              params: { q: query, page: nextPage, size: pageSize },
+            });
       setVideos((prev) => [...prev, ...data.content]);
       setNextPage(data.page + 1);
       setHasMore(!data.last);
@@ -34,7 +43,7 @@ export function useVideos(pageSize = DEFAULT_PAGE_SIZE) {
       inFlight.current = false;
       setLoading(false);
     }
-  }, [hasMore, nextPage, pageSize]);
+  }, [hasMore, nextPage, pageSize, query]);
 
   useEffect(() => {
     if (!started.current) {

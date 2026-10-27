@@ -79,6 +79,28 @@ class VideosControllerTest {
     }
 
     @Test
+    void searchVideosIsPublicAndForwardsQueryAndPagination() throws Exception {
+        var video = new VideoSummaryDto(7L, "Cats", "channel", 30.5, 1200L, "42.webp");
+        when(videoService.searchVideos("cat", 1, 5)).thenReturn(new PageDto<>(List.of(video), 1, 5, 6, 2, true));
+
+        mockMvc.perform(get("/api/videos/search").param("q", "cat").param("page", "1").param("size", "5"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].title").value("Cats"))
+                .andExpect(jsonPath("$.totalElements").value(6));
+    }
+
+    @Test
+    void searchVideosDefaultsToEmptyQueryAndFirstPage() throws Exception {
+        when(videoService.searchVideos("", 0, 12)).thenReturn(new PageDto<>(List.of(), 0, 12, 0, 0, true));
+
+        mockMvc.perform(get("/api/videos/search"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content").isEmpty());
+
+        verify(videoService).searchVideos("", 0, 12);
+    }
+
+    @Test
     void getVideosReturnsBadRequestForNonNumericPage() throws Exception {
         mockMvc.perform(get("/api/videos").param("page", "abc"))
                 .andExpect(status().isBadRequest());

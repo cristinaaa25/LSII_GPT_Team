@@ -1,5 +1,5 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import Header from '../Header';
 import { AuthContext, AuthContextType } from '../../context/AuthContext';
 
@@ -92,4 +92,39 @@ describe('Header', () => {
     });
     expect(mockLogout).toHaveBeenCalledTimes(1);
   });
+
+  it('submits the trimmed search text to the /search page', () => {
+    render(
+      <AuthContext.Provider value={createMockAuthContext()}>
+        <MemoryRouter initialEntries={['/']}>
+          <Routes>
+            <Route path="/" element={<Header />} />
+            <Route path="/search" element={<SearchLocation />} />
+          </Routes>
+        </MemoryRouter>
+      </AuthContext.Provider>
+    );
+
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Search videos' }), { target: { value: '  cats & dogs ' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Search' }));
+
+    expect(screen.getByTestId('location')).toHaveTextContent('/search?q=cats%20%26%20dogs');
+  });
+
+  it('prefills the search box from the current ?q= parameter', () => {
+    render(
+      <AuthContext.Provider value={createMockAuthContext()}>
+        <MemoryRouter initialEntries={['/search?q=cats']}>
+          <Header />
+        </MemoryRouter>
+      </AuthContext.Provider>
+    );
+
+    expect(screen.getByRole('searchbox', { name: 'Search videos' })).toHaveValue('cats');
+  });
 });
+
+const SearchLocation = () => {
+  const location = useLocation();
+  return <div data-testid="location">{location.pathname + location.search}</div>;
+};
