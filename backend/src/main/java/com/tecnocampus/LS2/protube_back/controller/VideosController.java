@@ -29,6 +29,14 @@ public class VideosController {
         return ResponseEntity.ok(videoService.getVideos(page, size));
     }
 
+    @GetMapping("/search")
+    public ResponseEntity<PageDto<VideoSummaryDto>> searchVideos(
+            @RequestParam(defaultValue = "") String q,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "12") int size) {
+        return ResponseEntity.ok(videoService.searchVideos(q, page, size));
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<VideoDetailDto> getVideo(@PathVariable Long id) {
         return ResponseEntity.ok(videoService.getVideo(id));
