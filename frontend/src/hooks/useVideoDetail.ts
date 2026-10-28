@@ -9,6 +9,8 @@ interface UseVideoDetailReturn {
   error: string | null;
   notFound: boolean;
   registerView: () => Promise<void>;
+  /** Replaces the loaded video, e.g. with the response of a successful metadata edit. */
+  replaceVideo: (updated: VideoDetail) => void;
 }
 
 export function useVideoDetail(id: string | undefined): UseVideoDetailReturn {
@@ -68,5 +70,5 @@ export function useVideoDetail(id: string | undefined): UseVideoDetailReturn {
     }
   }, [id]);
 
-  return { video, loading, error, notFound, registerView };
+  return { video, loading, error, notFound, registerView, replaceVideo: setVideo };
 }

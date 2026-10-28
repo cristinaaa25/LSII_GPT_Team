@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen } from '@testing-library/react';
 import axios from 'axios';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import VideoDetailPage from '../VideoDetailPage';
+import { AuthContext, AuthContextType } from '../../context/AuthContext';
 import type { VideoDetail } from '../../types/video';
 
 jest.mock('axios', () => {
@@ -11,6 +12,7 @@ jest.mock('axios', () => {
     default: {
       get: jest.fn(),
       post: jest.fn(),
+      put: jest.fn(),
       isAxiosError:
         actualAxios.isAxiosError || ((err: unknown) => Boolean((err as { isAxiosError?: boolean })?.isAxiosError)),
     },
@@ -21,6 +23,7 @@ jest.mock('axios', () => {
 
 const mockedGet = axios.get as jest.Mock;
 const mockedPost = axios.post as jest.Mock;
+const mockedPut = axios.put as jest.Mock;
 
 const sampleVideo: VideoDetail = {
   id: 42,
@@ -70,6 +73,7 @@ describe('VideoDetailPage', () => {
   beforeEach(() => {
     mockedGet.mockReset();
     mockedPost.mockReset();
+    mockedPut.mockReset();
     mockVideoResponse();
   });
 
@@ -181,5 +185,90 @@ describe('VideoDetailPage', () => {
 
     expect(await screen.findByRole('heading', { name: 'Could not load video' })).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Video Not Found' })).not.toBeInTheDocument();
+  });
+
+  describe('metadata editing', () => {
+    const renderAs = (username: string | null) => {
+      const auth: AuthContextType = {
+        user: username ? { id: 1, username, email: `${username}@example.com` } : null,
+        token: username ? 'jwt' : null,
+        isAuthenticated: username !== null,
+        isLoading: false,
+        login: jest.fn(),
+        register: jest.fn(),
+        logout: jest.fn(),
+      };
+      return render(
+        <AuthContext.Provider value={auth}>
+          <MemoryRouter initialEntries={['/videos/42']}>
+            <Routes>
+              <Route path="/videos/:id" element={<VideoDetailPage />} />
+            </Routes>
+          </MemoryRouter>
+        </AuthContext.Provider>
+      );
+    };
+
+    it('shows the Edit button only to the owner', async () => {
+      renderAs('David Attenborough');
+
+      expect(await screen.findByRole('button', { name: 'Edit' })).toBeInTheDocument();
+    });
+
+    it('hides the Edit button from other users', async () => {
+      renderAs('mallory');
+
+      await screen.findByRole('heading', { level: 1, name: 'Amazing Nature' });
+      expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument();
+    });
+
+    it('hides the Edit button from anonymous users', async () => {
+      renderAs(null);
+
+      await screen.findByRole('heading', { level: 1, name: 'Amazing Nature' });
+      expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument();
+    });
+
+    it('shows the saved changes immediately without reloading', async () => {
+      mockedPut.mockResolvedValueOnce({
+        data: { ...sampleVideo, title: 'Edited Nature', description: 'New text', tags: ['birds'], categories: [] },
+      });
+      renderAs('David Attenborough');
+
+      fireEvent.click(await screen.findByRole('button', { name: 'Edit' }));
+      expect(screen.getByRole('form', { name: 'Edit video' })).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument();
+
+      fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'Edited Nature' } });
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+      });
+
+      expect(mockedPut).toHaveBeenCalledWith(
+        'other/videos/42',
+        expect.objectContaining({ title: 'Edited Nature' }),
+        expect.anything()
+      );
+      expect(screen.queryByRole('form', { name: 'Edit video' })).not.toBeInTheDocument();
+      expect(screen.getByRole('heading', { level: 1, name: 'Edited Nature' })).toBeInTheDocument();
+      expect(screen.getByText('#birds')).toBeInTheDocument();
+      expect(screen.queryByText('#nature')).not.toBeInTheDocument();
+      expect(screen.getByRole('region', { name: 'Description' })).toHaveTextContent('New text');
+      expect(screen.getByText('Changes saved.')).toBeInTheDocument();
+      expect(mockedGet.mock.calls.filter(([url]) => !String(url).includes('/comments'))).toHaveLength(1);
+
+      fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+      expect(screen.queryByText('Changes saved.')).not.toBeInTheDocument();
+    });
+
+    it('closes the form without saving on Cancel', async () => {
+      renderAs('David Attenborough');
+
+      fireEvent.click(await screen.findByRole('button', { name: 'Edit' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+      expect(screen.queryByRole('form', { name: 'Edit video' })).not.toBeInTheDocument();
+      expect(mockedPut).not.toHaveBeenCalled();
+    });
   });
 });

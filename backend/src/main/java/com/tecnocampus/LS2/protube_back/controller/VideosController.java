@@ -3,7 +3,9 @@ package com.tecnocampus.LS2.protube_back.controller;
 import com.tecnocampus.LS2.protube_back.dto.PageDto;
 import com.tecnocampus.LS2.protube_back.dto.VideoDetailDto;
 import com.tecnocampus.LS2.protube_back.dto.VideoSummaryDto;
+import com.tecnocampus.LS2.protube_back.dto.VideoUpdateRequestDto;
 import com.tecnocampus.LS2.protube_back.services.VideoService;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -11,6 +13,8 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -71,5 +75,16 @@ public class VideosController {
                 file, title, description, tags, category, thumbnail, principal.getName()
         );
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<VideoDetailDto> updateVideo(
+            @PathVariable Long id,
+            @Valid @RequestBody VideoUpdateRequestDto request,
+            Principal principal) {
+        if (principal == null) {
+            throw new BadCredentialsException("Authentication required");
+        }
+        return ResponseEntity.ok(videoService.updateVideo(id, request, principal.getName()));
     }
 }

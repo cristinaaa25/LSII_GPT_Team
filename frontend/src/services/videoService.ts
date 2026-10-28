@@ -1,7 +1,7 @@
 import axios, { AxiosProgressEvent } from 'axios';
 import { getEnv } from '../utils/Env';
 import { authService } from './authService';
-import type { VideoDetail } from '../types/video';
+import type { VideoDetail, VideoUpdatePayload } from '../types/video';
 
 export interface UploadVideoPayload {
   file: File;
@@ -42,6 +42,17 @@ export const videoService = {
       onUploadProgress,
     });
 
+    return res.data;
+  },
+
+  updateVideo: async (id: number, payload: VideoUpdatePayload): Promise<VideoDetail> => {
+    const token = authService.getToken();
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+
+    const res = await axios.put<VideoDetail>(`${getEnv().API_BASE_URL}/videos/${id}`, payload, { headers });
     return res.data;
   },
 };

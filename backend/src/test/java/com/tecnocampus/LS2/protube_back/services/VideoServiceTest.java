@@ -6,6 +6,8 @@ import com.tecnocampus.LS2.protube_back.domain.VideoView;
 import com.tecnocampus.LS2.protube_back.dto.PageDto;
 import com.tecnocampus.LS2.protube_back.dto.VideoDetailDto;
 import com.tecnocampus.LS2.protube_back.dto.VideoSummaryDto;
+import com.tecnocampus.LS2.protube_back.dto.VideoUpdateRequestDto;
+import com.tecnocampus.LS2.protube_back.exception.ForbiddenException;
 import com.tecnocampus.LS2.protube_back.exception.InvalidRequestException;
 import com.tecnocampus.LS2.protube_back.exception.NotFoundException;
 import com.tecnocampus.LS2.protube_back.repository.CommentRepository;
@@ -446,5 +448,91 @@ class VideoServiceTest {
         assertThatThrownBy(() -> videoService.uploadVideo(
                 file, "Title", "Desc", List.of(), List.of(), null, "alice"
         )).isInstanceOf(MaxUploadSizeExceededException.class);
+    }
+
+    private static Video ownedVideo() {
+        User owner = new User("alice", "alice@example.com", "!");
+        Video video = new Video("Old title", "Old description", "42.mp4", "42.webp", 30.0, 1920, 1080, owner);
+        video.setId(42L);
+        video.setTags(new ArrayList<>(List.of("old")));
+        video.setCategories(new ArrayList<>(List.of("Music")));
+        return video;
+    }
+
+    @Test
+    void updateVideoReplacesMetadataForOwner() {
+        Video video = ownedVideo();
+        when(videoRepository.findById(42L)).thenReturn(Optional.of(video));
+        when(videoRepository.save(video)).thenReturn(video);
+        when(commentRepository.countByVideoId(42L)).thenReturn(3L);
+
+        VideoDetailDto result = videoService.updateVideo(42L, new VideoUpdateRequestDto(
+                "  New title ", " New description ", List.of(" cats ", "Funny"), List.of("Pets")), "alice");
+
+        assertThat(result.title()).isEqualTo("New title");
+        assertThat(result.description()).isEqualTo("New description");
+        assertThat(result.tags()).containsExactly("cats", "Funny");
+        assertThat(result.categories()).containsExactly("Pets");
+        assertThat(result.commentCount()).isEqualTo(3L);
+        assertThat(video.getTitle()).isEqualTo("New title");
+        assertThat(video.getTags()).containsExactly("cats", "Funny");
+        verify(videoRepository).save(video);
+    }
+
+    @Test
+    void updateVideoAllowsClearingTagsAndCategories() {
+        Video video = ownedVideo();
+        when(videoRepository.findById(42L)).thenReturn(Optional.of(video));
+        when(videoRepository.save(video)).thenReturn(video);
+
+        VideoDetailDto result = videoService.updateVideo(
+                42L, new VideoUpdateRequestDto("t", "d", List.of(), List.of()), "alice");
+
+        assertThat(result.tags()).isEmpty();
+        assertThat(result.categories()).isEmpty();
+    }
+
+    @Test
+    void updateVideoRejectsAnotherUser() {
+        Video video = ownedVideo();
+        when(videoRepository.findById(42L)).thenReturn(Optional.of(video));
+
+        assertThatThrownBy(() -> videoService.updateVideo(
+                42L, new VideoUpdateRequestDto("t", "d", List.of(), List.of()), "mallory"))
+                .isInstanceOf(ForbiddenException.class);
+
+        assertThat(video.getTitle()).isEqualTo("Old title");
+        verify(videoRepository, never()).save(any());
+    }
+
+    @Test
+    void updateVideoThrowsNotFoundForUnknownVideo() {
+        when(videoRepository.findById(999L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> videoService.updateVideo(
+                999L, new VideoUpdateRequestDto("t", "d", List.of(), List.of()), "alice"))
+                .isInstanceOf(NotFoundException.class)
+                .hasMessage("Video not found with id 999");
+    }
+
+    @Test
+    void updateVideoRequiresAuthenticatedUser() {
+        assertThatThrownBy(() -> videoService.updateVideo(
+                42L, new VideoUpdateRequestDto("t", "d", List.of(), List.of()), null))
+                .isInstanceOf(BadCredentialsException.class);
+        verifyNoInteractions(videoRepository);
+    }
+
+    @Test
+    void updateVideoRejectsNullId() {
+        assertThatThrownBy(() -> videoService.updateVideo(
+                null, new VideoUpdateRequestDto("t", "d", List.of(), List.of()), "alice"))
+                .isInstanceOf(InvalidRequestException.class);
+    }
+
+    @Test
+    void normalizeLabelsTrimsAndDropsCaseInsensitiveDuplicates() {
+        assertThat(VideoService.normalizeLabels(List.of(" Cats", "cats ", "Dogs", "CATS")))
+                .containsExactly("Cats", "Dogs");
     }
 }

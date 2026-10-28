@@ -24,6 +24,14 @@ export interface VideoDetail {
   thumbnailUrl?: string;
 }
 
+/** Body of PUT /api/videos/:id (backend VideoUpdateRequestDto). */
+export interface VideoUpdatePayload {
+  title: string;
+  description: string;
+  tags: string[];
+  categories: string[];
+}
+
 /** Paginated response shape (backend PageDto). */
 export interface Page<T> {
   content: T[];

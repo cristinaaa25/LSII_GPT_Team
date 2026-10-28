@@ -74,4 +74,27 @@ describe('videoService', () => {
       expect(call[2]?.headers).toEqual({});
     });
   });
+
+  describe('updateVideo', () => {
+    const payload = { title: 'New', description: 'Desc', tags: ['a'], categories: ['Music'] };
+
+    it('sends a PUT with the JSON payload and the bearer token', async () => {
+      authService.setToken('fake-jwt-token');
+      mockedAxios.put.mockResolvedValueOnce({ data: { id: 5, ...payload } });
+
+      const result = await videoService.updateVideo(5, payload);
+
+      expect(result).toEqual({ id: 5, ...payload });
+      expect(mockedAxios.put).toHaveBeenCalledWith('other/videos/5', payload, {
+        headers: { Authorization: 'Bearer fake-jwt-token' },
+      });
+    });
+
+    it('sends no Authorization header without a token and propagates errors', async () => {
+      mockedAxios.put.mockRejectedValueOnce({ response: { status: 401 } });
+
+      await expect(videoService.updateVideo(5, payload)).rejects.toEqual({ response: { status: 401 } });
+      expect(mockedAxios.put.mock.calls[0][2]).toEqual({ headers: {} });
+    });
+  });
 });
