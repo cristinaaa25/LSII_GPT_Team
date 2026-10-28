@@ -12,17 +12,22 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
+import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.Instant;
 import java.util.List;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -168,5 +173,53 @@ class VideosControllerTest {
         mockMvc.perform(post("/api/videos/999/views"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.detail").value("Video not found with id 999"));
+    }
+
+    @Test
+    @WithMockUser(username = "alice")
+    void uploadVideoReturnsCreatedWhenAuthenticated() throws Exception {
+        MockMultipartFile file = new MockMultipartFile("file", "clip.mp4", "video/mp4", "sample content".getBytes());
+        Instant now = Instant.parse("2026-10-25T10:00:00Z");
+        VideoDetailDto created = new VideoDetailDto(
+                99L,
+                "Uploaded Video",
+                "Description of uploaded",
+                List.of("tag1"),
+                List.of("Gaming"),
+                "alice",
+                now,
+                0L,
+                0L,
+                0L,
+                "uuid.mp4",
+                "uuid.webp"
+        );
+
+        when(videoService.uploadVideo(any(), eq("Uploaded Video"), eq("Description of uploaded"), any(), any(), any(), eq("alice")))
+                .thenReturn(created);
+
+        mockMvc.perform(multipart("/api/videos")
+                        .file(file)
+                        .param("title", "Uploaded Video")
+                        .param("description", "Description of uploaded")
+                        .param("tags", "tag1")
+                        .param("category", "Gaming"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.id").value(99))
+                .andExpect(jsonPath("$.title").value("Uploaded Video"))
+                .andExpect(jsonPath("$.author").value("alice"))
+                .andExpect(jsonPath("$.videoUrl").value("uuid.mp4"))
+                .andExpect(jsonPath("$.thumbnailUrl").value("uuid.webp"));
+    }
+
+    @Test
+    void uploadVideoReturnsUnauthorizedWhenUnauthenticated() throws Exception {
+        MockMultipartFile file = new MockMultipartFile("file", "clip.mp4", "video/mp4", "sample content".getBytes());
+
+        mockMvc.perform(multipart("/api/videos")
+                        .file(file)
+                        .param("title", "Uploaded Video")
+                        .param("description", "Description of uploaded"))
+                .andExpect(status().isUnauthorized());
     }
 }

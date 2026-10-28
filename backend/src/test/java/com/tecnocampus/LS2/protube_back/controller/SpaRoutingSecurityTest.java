@@ -27,7 +27,7 @@ class SpaRoutingSecurityTest {
     MockMvc mockMvc;
 
     @ParameterizedTest
-    @ValueSource(strings = {"/", "/login", "/register", "/videos/42"})
+    @ValueSource(strings = {"/", "/login", "/register", "/upload", "/videos/42"})
     void clientSideRoutesServeIndexWithoutAuthentication(String path) throws Exception {
         mockMvc.perform(get(path))
                 .andExpect(status().isOk())

@@ -16,6 +16,7 @@ import com.tecnocampus.LS2.protube_back.security.UserPrincipal;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.io.TempDir;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -25,9 +26,15 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -264,5 +271,180 @@ class VideoServiceTest {
     void registerViewThrowsInvalidRequestExceptionWhenIdIsNull() {
         assertThatThrownBy(() -> videoService.registerView(null))
                 .isInstanceOf(InvalidRequestException.class);
+    }
+
+    @Test
+    void uploadVideoStoresFileAndPersistsEntity(@TempDir Path tempDir) throws IOException {
+        VideoService customService = new VideoService(
+                videoRepository, commentRepository, videoViewRepository, userRepository, tempDir.toString()
+        );
+
+        User alice = new User("alice", "alice@example.com", "pass");
+        alice.setId(1L);
+        when(userRepository.findByUsername("alice")).thenReturn(Optional.of(alice));
+
+        when(videoRepository.save(any(Video.class))).thenAnswer(inv -> {
+            Video v = inv.getArgument(0);
+            v.setId(50L);
+            return v;
+        });
+
+        MockMultipartFile file = new MockMultipartFile("file", "clip.mp4", "video/mp4", "mp4 dummy content".getBytes());
+        MockMultipartFile thumb = new MockMultipartFile("thumbnail", "thumb.jpg", "image/jpeg", "thumb bytes".getBytes());
+
+        VideoDetailDto result = customService.uploadVideo(
+                file, "Spring Boot", "Great tutorial", List.of("java", "spring"), List.of("Education"), thumb, "alice"
+        );
+
+        assertThat(result.id()).isEqualTo(50L);
+        assertThat(result.title()).isEqualTo("Spring Boot");
+        assertThat(result.author()).isEqualTo("alice");
+        assertThat(result.tags()).containsExactly("java", "spring");
+        assertThat(result.categories()).containsExactly("Education");
+        assertThat(result.videoUrl()).endsWith(".mp4");
+        assertThat(result.thumbnailUrl()).endsWith(".jpg");
+
+        Path storedVideo = tempDir.resolve(result.videoUrl());
+        Path storedThumb = tempDir.resolve(result.thumbnailUrl());
+        assertThat(Files.exists(storedVideo)).isTrue();
+        assertThat(Files.exists(storedThumb)).isTrue();
+        assertThat(Files.readAllBytes(storedVideo)).isEqualTo("mp4 dummy content".getBytes());
+        assertThat(Files.readAllBytes(storedThumb)).isEqualTo("thumb bytes".getBytes());
+    }
+
+    @Test
+    void uploadVideoCleansUpMovedFileWhenDatabaseSaveFails(@TempDir Path tempDir) {
+        VideoService customService = new VideoService(
+                videoRepository, commentRepository, videoViewRepository, userRepository, tempDir.toString()
+        );
+
+        User alice = new User("alice", "alice@example.com", "pass");
+        when(userRepository.findByUsername("alice")).thenReturn(Optional.of(alice));
+        when(videoRepository.save(any(Video.class))).thenThrow(new RuntimeException("Database error"));
+
+        MockMultipartFile file = new MockMultipartFile("file", "clip.mp4", "video/mp4", "mp4 dummy content".getBytes());
+
+        assertThatThrownBy(() -> customService.uploadVideo(
+                file, "Spring Boot", "Great tutorial", List.of(), List.of(), null, "alice"
+        )).isInstanceOf(RuntimeException.class).hasMessageContaining("Database error");
+
+        try (var stream = Files.list(tempDir)) {
+            assertThat(stream.toList()).isEmpty();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @Test
+    void uploadVideoFailsWhenUserNotFound() {
+        when(userRepository.findByUsername("unknown")).thenReturn(Optional.empty());
+        MockMultipartFile file = new MockMultipartFile("file", "clip.mp4", "video/mp4", "content".getBytes());
+
+        assertThatThrownBy(() -> videoService.uploadVideo(
+                file, "Title", "Desc", List.of(), List.of(), null, "unknown"
+        )).isInstanceOf(BadCredentialsException.class);
+    }
+
+    @Test
+    void uploadVideoFailsWhenUsernameBlank() {
+        MockMultipartFile file = new MockMultipartFile("file", "clip.mp4", "video/mp4", "content".getBytes());
+
+        assertThatThrownBy(() -> videoService.uploadVideo(
+                file, "Title", "Desc", List.of(), List.of(), null, ""
+        )).isInstanceOf(BadCredentialsException.class);
+    }
+
+    @Test
+    void uploadVideoFailsWhenFileEmpty() {
+        User alice = new User("alice", "alice@example.com", "pass");
+        when(userRepository.findByUsername("alice")).thenReturn(Optional.of(alice));
+        MockMultipartFile file = new MockMultipartFile("file", "clip.mp4", "video/mp4", new byte[0]);
+
+        assertThatThrownBy(() -> videoService.uploadVideo(
+                file, "Title", "Desc", List.of(), List.of(), null, "alice"
+        )).isInstanceOf(InvalidRequestException.class).hasMessageContaining("file is required");
+    }
+
+    @Test
+    void uploadVideoFailsWhenWrongContentType() {
+        User alice = new User("alice", "alice@example.com", "pass");
+        when(userRepository.findByUsername("alice")).thenReturn(Optional.of(alice));
+        MockMultipartFile file = new MockMultipartFile("file", "clip.mp4", "text/plain", "content".getBytes());
+
+        assertThatThrownBy(() -> videoService.uploadVideo(
+                file, "Title", "Desc", List.of(), List.of(), null, "alice"
+        )).isInstanceOf(InvalidRequestException.class).hasMessageContaining("Only video/mp4");
+    }
+
+    @Test
+    void uploadVideoFailsWhenWrongExtension() {
+        User alice = new User("alice", "alice@example.com", "pass");
+        when(userRepository.findByUsername("alice")).thenReturn(Optional.of(alice));
+        MockMultipartFile file = new MockMultipartFile("file", "clip.avi", "video/mp4", "content".getBytes());
+
+        assertThatThrownBy(() -> videoService.uploadVideo(
+                file, "Title", "Desc", List.of(), List.of(), null, "alice"
+        )).isInstanceOf(InvalidRequestException.class).hasMessageContaining("Only video/mp4");
+    }
+
+    @Test
+    void uploadVideoFailsWhenTitleMissing() {
+        User alice = new User("alice", "alice@example.com", "pass");
+        when(userRepository.findByUsername("alice")).thenReturn(Optional.of(alice));
+        MockMultipartFile file = new MockMultipartFile("file", "clip.mp4", "video/mp4", "content".getBytes());
+
+        assertThatThrownBy(() -> videoService.uploadVideo(
+                file, "", "Desc", List.of(), List.of(), null, "alice"
+        )).isInstanceOf(InvalidRequestException.class).hasMessageContaining("Title is required");
+    }
+
+    @Test
+    void uploadVideoFailsWhenTitleTooLong() {
+        User alice = new User("alice", "alice@example.com", "pass");
+        when(userRepository.findByUsername("alice")).thenReturn(Optional.of(alice));
+        MockMultipartFile file = new MockMultipartFile("file", "clip.mp4", "video/mp4", "content".getBytes());
+
+        assertThatThrownBy(() -> videoService.uploadVideo(
+                file, "A".repeat(256), "Desc", List.of(), List.of(), null, "alice"
+        )).isInstanceOf(InvalidRequestException.class).hasMessageContaining("must not exceed 255");
+    }
+
+    @Test
+    void uploadVideoFailsWhenDescriptionMissing() {
+        User alice = new User("alice", "alice@example.com", "pass");
+        when(userRepository.findByUsername("alice")).thenReturn(Optional.of(alice));
+        MockMultipartFile file = new MockMultipartFile("file", "clip.mp4", "video/mp4", "content".getBytes());
+
+        assertThatThrownBy(() -> videoService.uploadVideo(
+                file, "Title", "   ", List.of(), List.of(), null, "alice"
+        )).isInstanceOf(InvalidRequestException.class).hasMessageContaining("Description is required");
+    }
+
+    @Test
+    void uploadVideoFailsWhenThumbnailInvalidType() {
+        User alice = new User("alice", "alice@example.com", "pass");
+        when(userRepository.findByUsername("alice")).thenReturn(Optional.of(alice));
+        MockMultipartFile file = new MockMultipartFile("file", "clip.mp4", "video/mp4", "content".getBytes());
+        MockMultipartFile thumb = new MockMultipartFile("thumbnail", "bad.txt", "text/plain", "bad".getBytes());
+
+        assertThatThrownBy(() -> videoService.uploadVideo(
+                file, "Title", "Desc", List.of(), List.of(), thumb, "alice"
+        )).isInstanceOf(InvalidRequestException.class).hasMessageContaining("Thumbnail must be an image");
+    }
+
+    @Test
+    void uploadVideoFailsWhenFileTooLarge() {
+        User alice = new User("alice", "alice@example.com", "pass");
+        when(userRepository.findByUsername("alice")).thenReturn(Optional.of(alice));
+        MockMultipartFile file = new MockMultipartFile("file", "clip.mp4", "video/mp4", new byte[10]) {
+            @Override
+            public long getSize() {
+                return VideoService.MAX_FILE_SIZE + 1;
+            }
+        };
+
+        assertThatThrownBy(() -> videoService.uploadVideo(
+                file, "Title", "Desc", List.of(), List.of(), null, "alice"
+        )).isInstanceOf(MaxUploadSizeExceededException.class);
     }
 }

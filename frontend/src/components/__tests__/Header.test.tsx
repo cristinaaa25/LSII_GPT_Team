@@ -29,6 +29,7 @@ describe('Header', () => {
     expect(screen.getByRole('img', { name: 'ProTube logo' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Log In' })).toHaveAttribute('href', '/login');
     expect(screen.getByRole('link', { name: 'Register' })).toHaveAttribute('href', '/register');
+    expect(screen.queryByRole('link', { name: 'Upload' })).not.toBeInTheDocument();
     expect(screen.queryByLabelText('User menu')).not.toBeInTheDocument();
   });
 
@@ -53,6 +54,7 @@ describe('Header', () => {
 
     expect(screen.getByRole('img', { name: 'alice' })).toHaveAttribute('src', 'http://avatar.jpg');
     expect(screen.getByText('alice')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Upload' })).toHaveAttribute('href', '/upload');
     expect(screen.queryByRole('link', { name: 'Log In' })).not.toBeInTheDocument();
   });
 

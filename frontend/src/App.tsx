@@ -7,6 +7,8 @@ import LoginPage from './components/LoginPage';
 import RegisterPage from './components/RegisterPage';
 import Header from './components/Header';
 import SearchPage from './components/SearchPage';
+import UploadPage from './components/UploadPage';
+import ProtectedRoute from './components/ProtectedRoute';
 import { AuthProvider } from './context/AuthProvider';
 
 interface AppProps {
@@ -22,6 +24,14 @@ export const AppContent: React.FC = () => {
           <Route path="/" element={<VideoCatalog />} />
           <Route path="/search" element={<SearchPage />} />
           <Route path="/videos/:id" element={<VideoDetailPage />} />
+          <Route
+            path="/upload"
+            element={
+              <ProtectedRoute>
+                <UploadPage />
+              </ProtectedRoute>
+            }
+          />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
         </Routes>
