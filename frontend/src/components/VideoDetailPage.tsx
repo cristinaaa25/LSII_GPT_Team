@@ -63,6 +63,7 @@ const VideoDetailPage: React.FC = () => {
           onPlay={registerView}
           className="w-100 h-100"
           aria-label={video.title}
+          autoPlay={true}
         >
           Your browser does not support HTML5 video playback.
         </video>
