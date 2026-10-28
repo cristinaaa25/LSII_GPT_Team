@@ -51,52 +51,57 @@ export const Header: React.FC = () => {
 
         <div className="d-flex align-items-center gap-3">
           {isAuthenticated && user ? (
-            <div className="dropdown position-relative">
-              <button
-                type="button"
-                className="btn btn-outline-light dropdown-toggle d-flex align-items-center gap-2"
-                onClick={() => setDropdownOpen(!dropdownOpen)}
-                aria-expanded={dropdownOpen}
-                aria-label="User menu"
-              >
-                {user.avatarUrl ? (
-                  <img
-                    src={user.avatarUrl}
-                    alt={user.username}
-                    className="rounded-circle"
-                    style={{ width: '28px', height: '28px', objectFit: 'cover' }}
-                  />
-                ) : (
-                  <span
-                    className="rounded-circle bg-primary text-white d-inline-flex justify-content-center align-items-center"
-                    style={{ width: '28px', height: '28px', fontSize: '14px', fontWeight: 'bold' }}
-                  >
-                    {userInitial}
-                  </span>
-                )}
-                <span>{user.username}</span>
-              </button>
-
-              {dropdownOpen && (
-                <ul
-                  className="dropdown-menu dropdown-menu-end show position-absolute end-0 mt-2 shadow"
-                  style={{ minWidth: '180px' }}
+            <>
+              <Link to="/upload" className="btn btn-outline-light btn-sm">
+                Upload
+              </Link>
+              <div className="dropdown position-relative">
+                <button
+                  type="button"
+                  className="btn btn-outline-light dropdown-toggle d-flex align-items-center gap-2"
+                  onClick={() => setDropdownOpen(!dropdownOpen)}
+                  aria-expanded={dropdownOpen}
+                  aria-label="User menu"
                 >
-                  <li className="dropdown-item-text">
-                    <div className="fw-bold">{user.username}</div>
-                    <small className="text-muted">{user.email}</small>
-                  </li>
-                  <li>
-                    <hr className="dropdown-divider" />
-                  </li>
-                  <li>
-                    <button type="button" className="dropdown-item text-danger" onClick={handleLogout} role="button">
-                      Logout
-                    </button>
-                  </li>
-                </ul>
-              )}
-            </div>
+                  {user.avatarUrl ? (
+                    <img
+                      src={user.avatarUrl}
+                      alt={user.username}
+                      className="rounded-circle"
+                      style={{ width: '28px', height: '28px', objectFit: 'cover' }}
+                    />
+                  ) : (
+                    <span
+                      className="rounded-circle bg-primary text-white d-inline-flex justify-content-center align-items-center"
+                      style={{ width: '28px', height: '28px', fontSize: '14px', fontWeight: 'bold' }}
+                    >
+                      {userInitial}
+                    </span>
+                  )}
+                  <span>{user.username}</span>
+                </button>
+
+                {dropdownOpen && (
+                  <ul
+                    className="dropdown-menu dropdown-menu-end show position-absolute end-0 mt-2 shadow"
+                    style={{ minWidth: '180px' }}
+                  >
+                    <li className="dropdown-item-text">
+                      <div className="fw-bold">{user.username}</div>
+                      <small className="text-muted">{user.email}</small>
+                    </li>
+                    <li>
+                      <hr className="dropdown-divider" />
+                    </li>
+                    <li>
+                      <button type="button" className="dropdown-item text-danger" onClick={handleLogout} role="button">
+                        Logout
+                      </button>
+                    </li>
+                  </ul>
+                )}
+              </div>
+            </>
           ) : (
             <div className="d-flex align-items-center gap-2">
               <Link to="/login" className="btn btn-outline-light btn-sm">
