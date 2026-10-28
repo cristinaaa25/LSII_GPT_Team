@@ -1,6 +1,8 @@
-import React from 'react';
+import React, { useContext, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import CommentSection from './CommentSection';
+import VideoEditForm from './VideoEditForm';
+import { AuthContext } from '../context/AuthContext';
 import { useVideoDetail } from '../hooks/useVideoDetail';
 import { getEnv } from '../utils/Env';
 import { formatDate, formatViews } from '../utils/format';
@@ -16,7 +18,10 @@ const resolveMediaUrl = (value: string | undefined, fallback: string): string =>
 
 const VideoDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const { video, loading, error, notFound, registerView } = useVideoDetail(id);
+  const { video, loading, error, notFound, registerView, replaceVideo } = useVideoDetail(id);
+  const currentUser = useContext(AuthContext)?.user ?? null;
+  const [editing, setEditing] = useState(false);
+  const [saved, setSaved] = useState(false);
   const videoSrc = resolveMediaUrl(video?.videoUrl, `${id}.mp4`);
   const posterSrc = resolveMediaUrl(video?.thumbnailUrl, `${id}.webp`);
 
@@ -54,6 +59,8 @@ const VideoDetailPage: React.FC = () => {
     );
   }
 
+  const isOwner = currentUser !== null && currentUser.username === video.author;
+
   return (
     <article className="video-detail-page">
       <div className="ratio ratio-16x9 bg-black rounded shadow-sm overflow-hidden mb-3">
@@ -70,8 +77,29 @@ const VideoDetailPage: React.FC = () => {
         </video>
       </div>
 
+      {saved && !editing && (
+        <div className="alert alert-success alert-dismissible" role="status">
+          Changes saved.
+          <button type="button" className="btn-close" aria-label="Close" onClick={() => setSaved(false)} />
+        </div>
+      )}
+
       <header className="mb-3">
-        <h1 className="h3 mb-2">{video.title}</h1>
+        <div className="d-flex justify-content-between align-items-start gap-2">
+          <h1 className="h3 mb-2">{video.title}</h1>
+          {isOwner && !editing && video.id !== undefined && (
+            <button
+              type="button"
+              className="btn btn-outline-primary btn-sm"
+              onClick={() => {
+                setSaved(false);
+                setEditing(true);
+              }}
+            >
+              Edit
+            </button>
+          )}
+        </div>
         <div className="d-flex flex-wrap justify-content-between align-items-center border-bottom pb-3 text-body-secondary small">
           <div className="d-flex align-items-center gap-3">
             <span className="fw-bold text-body">{video.author}</span>
@@ -83,6 +111,18 @@ const VideoDetailPage: React.FC = () => {
           </div>
         </div>
       </header>
+
+      {editing && video.id !== undefined && (
+        <VideoEditForm
+          video={{ ...video, id: video.id }}
+          onSaved={(updated) => {
+            replaceVideo(updated);
+            setEditing(false);
+            setSaved(true);
+          }}
+          onCancel={() => setEditing(false)}
+        />
+      )}
 
       {video.categories && video.categories.length > 0 && (
         <div className="mb-2">

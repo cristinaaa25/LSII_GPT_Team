@@ -4,6 +4,8 @@ import com.tecnocampus.LS2.protube_back.configuration.SecurityConfig;
 import com.tecnocampus.LS2.protube_back.dto.PageDto;
 import com.tecnocampus.LS2.protube_back.dto.VideoDetailDto;
 import com.tecnocampus.LS2.protube_back.dto.VideoSummaryDto;
+import com.tecnocampus.LS2.protube_back.dto.VideoUpdateRequestDto;
+import com.tecnocampus.LS2.protube_back.exception.ForbiddenException;
 import com.tecnocampus.LS2.protube_back.exception.InvalidRequestException;
 import com.tecnocampus.LS2.protube_back.exception.NotFoundException;
 import com.tecnocampus.LS2.protube_back.services.VideoService;
@@ -12,23 +14,27 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.Instant;
+import java.util.Collections;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -221,5 +227,146 @@ class VideosControllerTest {
                         .param("title", "Uploaded Video")
                         .param("description", "Description of uploaded"))
                 .andExpect(status().isUnauthorized());
+    }
+
+    private static final String VALID_UPDATE = """
+            {"title": "New title", "description": "New description",
+             "tags": ["cats", "funny"], "categories": ["Pets"]}
+            """;
+
+    private static VideoDetailDto updatedVideo() {
+        return new VideoDetailDto(42L, "New title", "New description", List.of("cats", "funny"), List.of("Pets"),
+                "alice", Instant.parse("2026-10-25T10:00:00Z"), 5L, 1L, 2L, "42.mp4", "42.webp");
+    }
+
+    @Test
+    @WithMockUser(username = "alice")
+    void updateVideoReturnsUpdatedVideoForOwner() throws Exception {
+        var expectedRequest = new VideoUpdateRequestDto(
+                "New title", "New description", List.of("cats", "funny"), List.of("Pets"));
+        when(videoService.updateVideo(42L, expectedRequest, "alice")).thenReturn(updatedVideo());
+
+        mockMvc.perform(put("/api/videos/42").contentType(MediaType.APPLICATION_JSON).content(VALID_UPDATE))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(42))
+                .andExpect(jsonPath("$.title").value("New title"))
+                .andExpect(jsonPath("$.description").value("New description"))
+                .andExpect(jsonPath("$.tags[1]").value("funny"))
+                .andExpect(jsonPath("$.categories[0]").value("Pets"))
+                .andExpect(jsonPath("$.commentCount").value(2));
+    }
+
+    @Test
+    @WithMockUser(username = "mallory")
+    void updateVideoReturnsForbiddenForAnotherUser() throws Exception {
+        when(videoService.updateVideo(eq(42L), any(), eq("mallory")))
+                .thenThrow(new ForbiddenException("Only the owner can edit this video"));
+
+        mockMvc.perform(put("/api/videos/42").contentType(MediaType.APPLICATION_JSON).content(VALID_UPDATE))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.detail").value("Only the owner can edit this video"));
+    }
+
+    @Test
+    void updateVideoReturnsUnauthorizedWhenAnonymous() throws Exception {
+        mockMvc.perform(put("/api/videos/42").contentType(MediaType.APPLICATION_JSON).content(VALID_UPDATE))
+                .andExpect(status().isUnauthorized());
+
+        verify(videoService, never()).updateVideo(any(), any(), any());
+    }
+
+    @Test
+    @WithMockUser(username = "alice")
+    void updateVideoReturnsNotFoundForUnknownVideo() throws Exception {
+        when(videoService.updateVideo(eq(999L), any(), eq("alice")))
+                .thenThrow(new NotFoundException("Video not found with id 999"));
+
+        mockMvc.perform(put("/api/videos/999").contentType(MediaType.APPLICATION_JSON).content(VALID_UPDATE))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.detail").value("Video not found with id 999"));
+    }
+
+    @Test
+    @WithMockUser(username = "alice")
+    void updateVideoRejectsBlankTitle() throws Exception {
+        String body = """
+                {"title": "  ", "description": "d", "tags": [], "categories": []}
+                """;
+
+        mockMvc.perform(put("/api/videos/42").contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.detail").value("Title is required"));
+
+        verify(videoService, never()).updateVideo(any(), any(), any());
+    }
+
+    @Test
+    @WithMockUser(username = "alice")
+    void updateVideoRejectsTooLongTitle() throws Exception {
+        String body = """
+                {"title": "%s", "description": "d", "tags": [], "categories": []}
+                """.formatted("x".repeat(256));
+
+        mockMvc.perform(put("/api/videos/42").contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.detail").value("Title must not exceed 255 characters"));
+    }
+
+    @Test
+    @WithMockUser(username = "alice")
+    void updateVideoRejectsMissingDescription() throws Exception {
+        String body = """
+                {"title": "t", "tags": [], "categories": []}
+                """;
+
+        mockMvc.perform(put("/api/videos/42").contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.detail").value("Description is required"));
+    }
+
+    @Test
+    @WithMockUser(username = "alice")
+    void updateVideoRejectsBlankTag() throws Exception {
+        String body = """
+                {"title": "t", "description": "d", "tags": ["ok", " "], "categories": []}
+                """;
+
+        mockMvc.perform(put("/api/videos/42").contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.detail").value("Tags must not be blank"));
+    }
+
+    @Test
+    @WithMockUser(username = "alice")
+    void updateVideoRejectsTooManyTags() throws Exception {
+        String tags = String.join(",", Collections.nCopies(21, "\"t\""));
+        String body = """
+                {"title": "t", "description": "d", "tags": [%s], "categories": []}
+                """.formatted(tags);
+
+        mockMvc.perform(put("/api/videos/42").contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.detail").value("A video can have at most 20 tags"));
+    }
+
+    @Test
+    @WithMockUser(username = "alice")
+    void updateVideoRejectsMissingCategories() throws Exception {
+        String body = """
+                {"title": "t", "description": "d", "tags": []}
+                """;
+
+        mockMvc.perform(put("/api/videos/42").contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.detail").value("Categories are required (use an empty list for none)"));
+    }
+
+    @Test
+    @WithMockUser(username = "alice")
+    void updateVideoRejectsMalformedJson() throws Exception {
+        mockMvc.perform(put("/api/videos/42").contentType(MediaType.APPLICATION_JSON).content("{not json"))
+                .andExpect(status().isBadRequest());
+
+        verify(videoService, never()).updateVideo(any(), any(), any());
     }
 }

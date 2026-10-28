@@ -6,6 +6,8 @@ import com.tecnocampus.LS2.protube_back.domain.VideoView;
 import com.tecnocampus.LS2.protube_back.dto.PageDto;
 import com.tecnocampus.LS2.protube_back.dto.VideoDetailDto;
 import com.tecnocampus.LS2.protube_back.dto.VideoSummaryDto;
+import com.tecnocampus.LS2.protube_back.dto.VideoUpdateRequestDto;
+import com.tecnocampus.LS2.protube_back.exception.ForbiddenException;
 import com.tecnocampus.LS2.protube_back.exception.InvalidRequestException;
 import com.tecnocampus.LS2.protube_back.exception.NotFoundException;
 import com.tecnocampus.LS2.protube_back.repository.CommentRepository;
@@ -35,7 +37,9 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.LinkedHashMap;
 import java.util.Locale;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
@@ -374,6 +378,43 @@ public class VideoService {
             }
         }
         return result;
+    }
+
+    /** Replaces title, description, tags and categories. Only the uploader may edit (404 before 403). */
+    @Transactional
+    public VideoDetailDto updateVideo(Long id, VideoUpdateRequestDto request, String username) {
+        if (id == null) {
+            throw new InvalidRequestException("Video id must not be null");
+        }
+        if (username == null || username.isBlank()) {
+            throw new BadCredentialsException("Authentication required");
+        }
+        Video video = videoRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("Video not found with id " + id));
+        if (video.getUploader() == null || !username.equals(video.getUploader().getUsername())) {
+            throw new ForbiddenException("Only the owner can edit this video");
+        }
+
+        video.setTitle(request.title().trim());
+        video.setDescription(request.description().trim());
+        // Mutate the managed collections so Hibernate rewrites the rows instead of replacing the proxies
+        video.getTags().clear();
+        video.getTags().addAll(normalizeLabels(request.tags()));
+        video.getCategories().clear();
+        video.getCategories().addAll(normalizeLabels(request.categories()));
+
+        Video saved = videoRepository.save(video);
+        return toDetail(saved, commentRepository.countByVideoId(id));
+    }
+
+    /** Trims each label and drops case-insensitive duplicates, keeping the first spelling and the order. */
+    static List<String> normalizeLabels(List<String> labels) {
+        Map<String, String> unique = new LinkedHashMap<>();
+        for (String label : labels) {
+            String trimmed = label.trim();
+            unique.putIfAbsent(trimmed.toLowerCase(Locale.ROOT), trimmed);
+        }
+        return new ArrayList<>(unique.values());
     }
 
     @Transactional
