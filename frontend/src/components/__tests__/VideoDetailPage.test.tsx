@@ -48,10 +48,29 @@ const renderWithRoute = (initialPath = '/videos/42') => {
   );
 };
 
+const mockVideoResponse = (video: VideoDetail = sampleVideo) => {
+  mockedGet.mockImplementation((url: string) => {
+    if (typeof url === 'string' && url.includes('/comments')) {
+      return Promise.resolve({
+        data: {
+          content: [],
+          page: 0,
+          size: 10,
+          totalElements: video.commentCount || 0,
+          totalPages: 1,
+          last: true,
+        },
+      });
+    }
+    return Promise.resolve({ data: video });
+  });
+};
+
 describe('VideoDetailPage', () => {
   beforeEach(() => {
     mockedGet.mockReset();
     mockedPost.mockReset();
+    mockVideoResponse();
   });
 
   it('shows a loading spinner while fetching video details', () => {
@@ -89,7 +108,7 @@ describe('VideoDetailPage', () => {
     );
 
     expect(screen.getByRole('heading', { level: 2, name: 'Comments (8)' })).toBeInTheDocument();
-    expect(screen.getByText(/Comments are placeholder and will be available soon\./)).toBeInTheDocument();
+    expect(screen.getByText(/log in to comment/i)).toBeInTheDocument();
   });
 
   it('registers a view and updates the view count when video is played', async () => {
@@ -126,12 +145,10 @@ describe('VideoDetailPage', () => {
   });
 
   it('keeps absolute media URLs as-is and does not double-prefix them', async () => {
-    mockedGet.mockResolvedValueOnce({
-      data: {
-        ...sampleVideo,
-        videoUrl: 'https://cdn.example.com/media/42.mp4',
-        thumbnailUrl: 'https://cdn.example.com/media/42.webp',
-      },
+    mockVideoResponse({
+      ...sampleVideo,
+      videoUrl: 'https://cdn.example.com/media/42.mp4',
+      thumbnailUrl: 'https://cdn.example.com/media/42.webp',
     });
 
     renderWithRoute();

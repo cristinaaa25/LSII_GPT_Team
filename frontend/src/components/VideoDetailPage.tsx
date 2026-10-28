@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link, useParams } from 'react-router-dom';
+import CommentSection from './CommentSection';
 import { useVideoDetail } from '../hooks/useVideoDetail';
 import { getEnv } from '../utils/Env';
 import { formatDate, formatViews } from '../utils/format';
@@ -113,12 +114,7 @@ const VideoDetailPage: React.FC = () => {
         </section>
       )}
 
-      <section className="mt-4 pt-3 border-top" aria-label="Comments">
-        <h2 className="h5 mb-3">Comments ({video.commentCount})</h2>
-        <div className="card p-4 text-center bg-body-tertiary border-secondary-subtle">
-          <p className="text-body-secondary mb-0">Comments are placeholder and will be available soon.</p>
-        </div>
-      </section>
+      {video.id !== undefined && <CommentSection videoId={video.id} initialCommentCount={video.commentCount} />}
     </article>
   );
 };
