@@ -14,6 +14,10 @@ import java.util.List;
 @Repository
 public interface VideoRepository extends JpaRepository<Video, Long> {
     List<Video> findByUploaderId(Long uploaderId);
+
+    @EntityGraph(attributePaths = "uploader")
+    List<Video> findByUploaderIdOrderByCreatedAtDesc(Long uploaderId);
+
     List<Video> findByTitleContainingIgnoreCase(String query);
     boolean existsByStoreId(Long storeId);
 

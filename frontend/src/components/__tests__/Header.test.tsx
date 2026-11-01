@@ -86,6 +86,8 @@ describe('Header', () => {
     fireEvent.click(userMenuButton);
 
     expect(screen.getByText('alice@example.com')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Profile' })).toHaveAttribute('href', '/profile');
+    expect(screen.getByRole('link', { name: 'Public Profile' })).toHaveAttribute('href', '/users/alice');
     const logoutButton = screen.getByRole('button', { name: /Logout/i });
     expect(logoutButton).toBeInTheDocument();
 

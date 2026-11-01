@@ -1,3 +1,5 @@
+import { getEnv } from './Env';
+
 /** Formats seconds as m:ss or h:mm:ss. */
 export function formatDuration(seconds: number | null | undefined): string {
   if (seconds == null || !Number.isFinite(seconds) || seconds < 0) return '';
@@ -24,4 +26,14 @@ export function formatDate(dateString: string | null | undefined): string {
     month: 'short',
     day: 'numeric',
   });
+}
+
+/** Resolves an avatar or media URL against MEDIA_BASE_URL. */
+export function resolveAvatarUrl(url: string | null | undefined): string | undefined {
+  if (!url) return undefined;
+  const trimmed = url.trim();
+  if (!trimmed) return undefined;
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  const path = trimmed.replace(/^\/?media\//, '').replace(/^\//, '');
+  return `${getEnv().MEDIA_BASE_URL}/${path}`;
 }

@@ -9,6 +9,8 @@ import Header from './components/Header';
 import SearchPage from './components/SearchPage';
 import UploadPage from './components/UploadPage';
 import ProtectedRoute from './components/ProtectedRoute';
+import ProfilePage from './components/ProfilePage';
+import PublicProfilePage from './components/PublicProfilePage';
 import { AuthProvider } from './context/AuthProvider';
 
 interface AppProps {
@@ -32,6 +34,15 @@ export const AppContent: React.FC = () => {
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+                <ProfilePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route path="/users/:username" element={<PublicProfilePage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
         </Routes>

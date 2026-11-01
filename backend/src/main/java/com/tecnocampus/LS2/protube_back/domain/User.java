@@ -21,6 +21,9 @@ public class User {
     @Column(name = "password", nullable = false, length = 255)
     private String password;
 
+    @Column(name = "display_name", length = 100)
+    private String displayName;
+
     @Column(name = "avatar_url", length = 255)
     private String avatarUrl;
 
@@ -44,6 +47,16 @@ public class User {
         this.username = username;
         this.email = email;
         this.password = password;
+        this.avatarUrl = avatarUrl;
+        this.description = description;
+        this.createdAt = Instant.now();
+    }
+
+    public User(String username, String email, String password, String displayName, String avatarUrl, String description) {
+        this.username = username;
+        this.email = email;
+        this.password = password;
+        this.displayName = displayName;
         this.avatarUrl = avatarUrl;
         this.description = description;
         this.createdAt = Instant.now();
@@ -79,6 +92,14 @@ public class User {
 
     public void setPassword(String password) {
         this.password = password;
+    }
+
+    public String getDisplayName() {
+        return displayName;
+    }
+
+    public void setDisplayName(String displayName) {
+        this.displayName = displayName;
     }
 
     public String getAvatarUrl() {

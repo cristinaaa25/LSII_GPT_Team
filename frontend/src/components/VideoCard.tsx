@@ -12,8 +12,8 @@ const VideoCard: React.FC<Props> = ({ video }) => {
   const duration = formatDuration(video.duration);
 
   return (
-    <Link to={`/videos/${video.id}`} className="text-decoration-none text-reset d-block h-100">
-      <article className="card h-100 shadow-sm" aria-label={video.title}>
+    <article className="card h-100 shadow-sm" aria-label={video.title}>
+      <Link to={`/videos/${video.id}`} className="text-decoration-none text-reset d-block">
         <div className="position-relative">
           <div className="ratio ratio-16x9 bg-dark rounded-top overflow-hidden">
             {video.thumbnail && (
@@ -31,15 +31,25 @@ const VideoCard: React.FC<Props> = ({ video }) => {
             </span>
           )}
         </div>
-        <div className="card-body">
-          <h2 className="card-title h6 text-truncate" title={video.title}>
+      </Link>
+      <div className="card-body">
+        <h2 className="card-title h6 text-truncate" title={video.title}>
+          <Link to={`/videos/${video.id}`} className="text-decoration-none text-reset">
             {video.title}
-          </h2>
-          <p className="card-text text-body-secondary small mb-0">{video.author}</p>
-          <p className="card-text text-body-secondary small">{formatViews(video.views)}</p>
-        </div>
-      </article>
-    </Link>
+          </Link>
+        </h2>
+        <p className="card-text text-body-secondary small mb-0">
+          <Link
+            to={`/users/${encodeURIComponent(video.author)}`}
+            className="text-decoration-none text-body-secondary"
+            aria-label={`Author ${video.author}`}
+          >
+            {video.author}
+          </Link>
+        </p>
+        <p className="card-text text-body-secondary small">{formatViews(video.views)}</p>
+      </div>
+    </article>
   );
 };
 

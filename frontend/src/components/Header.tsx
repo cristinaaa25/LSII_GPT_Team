@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import { resolveAvatarUrl } from '../utils/format';
 
 export const Header: React.FC = () => {
   const { user, isAuthenticated, logout } = useAuth();
@@ -22,6 +23,7 @@ export const Header: React.FC = () => {
   };
 
   const userInitial = user?.username ? user.username.charAt(0).toUpperCase() : '?';
+  const resolvedAvatar = resolveAvatarUrl(user?.avatarUrl);
 
   return (
     <header className="navbar navbar-expand-lg navbar-dark bg-dark px-4 py-2 shadow-sm">
@@ -63,9 +65,9 @@ export const Header: React.FC = () => {
                   aria-expanded={dropdownOpen}
                   aria-label="User menu"
                 >
-                  {user.avatarUrl ? (
+                  {resolvedAvatar ? (
                     <img
-                      src={user.avatarUrl}
+                      src={resolvedAvatar}
                       alt={user.username}
                       className="rounded-circle"
                       style={{ width: '28px', height: '28px', objectFit: 'cover' }}
@@ -78,7 +80,7 @@ export const Header: React.FC = () => {
                       {userInitial}
                     </span>
                   )}
-                  <span>{user.username}</span>
+                  <span>{user.displayName || user.username}</span>
                 </button>
 
                 {dropdownOpen && (
@@ -87,8 +89,25 @@ export const Header: React.FC = () => {
                     style={{ minWidth: '180px' }}
                   >
                     <li className="dropdown-item-text">
-                      <div className="fw-bold">{user.username}</div>
+                      <div className="fw-bold">{user.displayName || user.username}</div>
                       <small className="text-muted">{user.email}</small>
+                    </li>
+                    <li>
+                      <hr className="dropdown-divider" />
+                    </li>
+                    <li>
+                      <Link to="/profile" className="dropdown-item" onClick={() => setDropdownOpen(false)}>
+                        Profile
+                      </Link>
+                    </li>
+                    <li>
+                      <Link
+                        to={`/users/${encodeURIComponent(user.username)}`}
+                        className="dropdown-item"
+                        onClick={() => setDropdownOpen(false)}
+                      >
+                        Public Profile
+                      </Link>
                     </li>
                     <li>
                       <hr className="dropdown-divider" />
