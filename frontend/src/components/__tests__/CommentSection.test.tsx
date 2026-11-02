@@ -204,6 +204,27 @@ describe('CommentSection', () => {
     expect(await screen.findByText('Here is my reply to Alice')).toBeInTheDocument();
   });
 
+  it('keeps the count from the video (replies included) and adds new replies to it', async () => {
+    mockedGet.mockResolvedValueOnce({ data: mockPage });
+    mockedPost.mockResolvedValueOnce({
+      data: { ...sampleComments[0], id: 9, text: 'Another reply', parentId: 1, replies: [] },
+    });
+
+    renderWithAuth(<CommentSection videoId={42} initialCommentCount={3} />, true);
+
+    await screen.findByText('Great video on wildlife!');
+    // The first page reports 2 root comments, but the heading keeps the total of 3 (with the reply)
+    expect(screen.getByRole('heading', { level: 2, name: 'Comments (3)' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Reply to comment by alice' }));
+    fireEvent.change(screen.getByPlaceholderText('Write a reply...'), { target: { value: 'Another reply' } });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Reply' }));
+    });
+
+    expect(screen.getByRole('heading', { level: 2, name: 'Comments (4)' })).toBeInTheDocument();
+  });
+
   it('cancelling reply closes the reply form', async () => {
     mockedGet.mockResolvedValueOnce({ data: mockPage });
 
@@ -317,5 +338,24 @@ describe('CommentSection', () => {
 
     expect(await screen.findByText('Second page comment')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Load more comments' })).not.toBeInTheDocument();
+  });
+
+  it('does not duplicate a comment that shifts into the next page', async () => {
+    mockedGet.mockResolvedValueOnce({
+      data: { content: [sampleComments[0]], page: 0, size: 1, totalElements: 2, totalPages: 2, last: false },
+    });
+    // Offset pagination: a new comment pushed the first one into page 1
+    mockedGet.mockResolvedValueOnce({
+      data: { content: [sampleComments[0]], page: 1, size: 1, totalElements: 3, totalPages: 3, last: false },
+    });
+
+    renderWithAuth(<CommentSection videoId={42} />, false);
+
+    const loadMoreBtn = await screen.findByRole('button', { name: 'Load more comments' });
+    await act(async () => {
+      fireEvent.click(loadMoreBtn);
+    });
+
+    expect(screen.getAllByText('Great video on wildlife!')).toHaveLength(1);
   });
 });

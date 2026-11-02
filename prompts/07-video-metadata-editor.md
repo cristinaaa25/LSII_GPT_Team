@@ -1,7 +1,7 @@
 # Video metadata editor: owners edit title, description, tags and categories (US-07)
 
-**Approved on:** pending (PR #<n>)
-**Approved by:** <team members / PR link>
+**Approved on:** 2026-10-28 (PR #16)
+**Approved by:** team review in PR #16
 **Used for:** full-stack feature where the owner of a resource edits it (PUT endpoint with ownership rules
 401/403/404 and Bean Validation, owner-only "Edit" button and form in React, tests on both sides).
 

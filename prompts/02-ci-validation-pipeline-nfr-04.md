@@ -1,7 +1,7 @@
 # CI validation pipeline (NFR-04)
 
-**Approved on:** pending (PR task/nfr-04-CI-pipeline)
-**Approved by:** <team members / PR link>
+**Approved on:** 2026-10-15 (PR #5)
+**Approved by:** team review in PR #5
 **Used for:** improving the GitHub Actions CI pipeline (.github/workflows/main.yml) with parallel frontend and backend jobs, caching, docker build check, and e2e job.
 
 ## Prompt

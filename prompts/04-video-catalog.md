@@ -1,7 +1,7 @@
 # Video catalog: import the video store and list videos (US-04)
 
-**Approved on:** pending (PR #<n>)
-**Approved by:** <team members / PR link>
+**Approved on:** 2026-10-16 (PR #6)
+**Approved by:** team review in PR #6
 **Used for:** full-stack feature that imports the `tooling/videoGrabber` store into the database and shows a
 paginated video catalog (backend endpoint + React page + tests).
 

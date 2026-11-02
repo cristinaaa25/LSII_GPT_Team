@@ -9,10 +9,10 @@ export interface CommentSectionProps {
   initialCommentCount?: number;
 }
 
-export const CommentSection: React.FC<CommentSectionProps> = ({ videoId, initialCommentCount = 0 }) => {
+export const CommentSection: React.FC<CommentSectionProps> = ({ videoId, initialCommentCount }) => {
   const authContext = useContext(AuthContext);
   const isAuthenticated = authContext?.isAuthenticated ?? false;
-  const { comments, loading, error, totalElements, hasMore, loadMore, addComment, addReply, toggleLike } =
+  const { comments, loading, error, totalElements, addedCount, hasMore, loadMore, addComment, addReply, toggleLike } =
     useComments(videoId);
 
   const [newCommentText, setNewCommentText] = useState('');
@@ -66,8 +66,9 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ videoId, initial
     }
   };
 
-  const displayCount =
-    totalElements > 0 ? totalElements : initialCommentCount > 0 ? initialCommentCount : comments.length;
+  // The video's commentCount includes replies, while totalElements only counts root comments:
+  // prefer the former so the heading does not change once the first page loads
+  const displayCount = initialCommentCount !== undefined ? initialCommentCount + addedCount : totalElements;
 
   return (
     <section className="mt-4 pt-3 border-top" aria-label="Comments">

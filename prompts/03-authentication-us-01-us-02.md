@@ -1,7 +1,7 @@
 # Authentication: User Registration and Login (US-01, US-02)
 
-**Approved on:** pending (PR #<n>)
-**Approved by:** <team members / PR link>
+**Approved on:** 2026-10-21 (PR #8)
+**Approved by:** team review in PR #8
 **Used for:** Full-stack feature implementing user registration (US-01) and user login (US-02) with Spring Security, BCrypt, JWT authorization, REST endpoints, and React Router integration.
 
 ## Prompt

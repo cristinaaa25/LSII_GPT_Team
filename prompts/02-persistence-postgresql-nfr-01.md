@@ -1,7 +1,7 @@
 # Persistence with PostgreSQL (NFR-01)
 
-**Approved on:** pending (PR #<n>)
-**Approved by:** <team members / PR link>
+**Approved on:** 2026-10-14 (PR #3)
+**Approved by:** team review in PR #3
 **Used for:** Implementing database persistence with PostgreSQL, Flyway migrations, JPA entities, repositories, and slice tests.
 
 ## Prompt

@@ -149,18 +149,26 @@ public class UserService {
 
             Files.copy(file.getInputStream(), targetPath, StandardCopyOption.REPLACE_EXISTING);
 
-            // Clean up previous avatar if stored locally
-            if (user.getAvatarUrl() != null && user.getAvatarUrl().startsWith("/media/avatars/")) {
-                String oldFileName = user.getAvatarUrl().substring("/media/avatars/".length());
+            String oldAvatarUrl = user.getAvatarUrl();
+            user.setAvatarUrl("/media/avatars/" + fileName);
+            User saved;
+            try {
+                saved = userRepository.save(user);
+            } catch (RuntimeException e) {
+                // Keep the previous avatar and do not leave the new file orphaned
+                Files.deleteIfExists(targetPath);
+                throw e;
+            }
+
+            // Only once the new avatar is saved, clean up the previous one if stored locally
+            if (oldAvatarUrl != null && oldAvatarUrl.startsWith("/media/avatars/")) {
+                String oldFileName = oldAvatarUrl.substring("/media/avatars/".length());
                 try {
                     Files.deleteIfExists(avatarsDir.resolve(oldFileName));
                 } catch (IOException e) {
                     LOG.warn("Could not delete old avatar {}: {}", oldFileName, e.getMessage());
                 }
             }
-
-            user.setAvatarUrl("/media/avatars/" + fileName);
-            User saved = userRepository.save(user);
             return toDto(saved);
         } catch (IOException e) {
             throw new RuntimeException("Failed to save avatar file: " + e.getMessage(), e);

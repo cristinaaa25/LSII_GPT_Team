@@ -1,7 +1,7 @@
 # Video search: ranked search over title, tags and description (US-08)
 
-**Approved on:** pending (PR #<n>)
-**Approved by:** <team members / PR link>
+**Approved on:** 2026-10-27 (PR #12)
+**Approved by:** team review in PR #12
 **Used for:** full-stack feature implementing a paginated, relevance-ranked video search (backend JPQL query +
 REST endpoint, React header search bar and results page, tests on both sides).
 

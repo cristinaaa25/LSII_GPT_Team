@@ -1,7 +1,7 @@
 # Containerized delivery with Docker Compose (NFR-03)
 
-**Approved on:** pending (PR task/nfr-03-containerized-delivery)
-**Approved by:** <team members / PR link>
+**Approved on:** 2026-10-14 (PR #4)
+**Approved by:** team review in PR #4
 **Used for:** setting up containerized application delivery with multi-stage Docker build, Docker Compose, PostgreSQL service with healthcheck, environment template and volume mounting.
 
 ## Prompt

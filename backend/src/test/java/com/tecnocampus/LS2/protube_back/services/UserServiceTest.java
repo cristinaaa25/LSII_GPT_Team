@@ -231,6 +231,29 @@ class UserServiceTest {
     }
 
     @Test
+    void updateAvatarKeepsPreviousAvatarAndRemovesNewFileWhenSaveFails() throws IOException {
+        Path avatarsDir = tempStoreDir.resolve("avatars");
+        Files.createDirectories(avatarsDir);
+        Path oldFile = avatarsDir.resolve("old-avatar.png");
+        Files.writeString(oldFile, "old-avatar-data");
+
+        User user = new User("alice", "alice@example.com", "hash");
+        user.setAvatarUrl("/media/avatars/old-avatar.png");
+        when(userRepository.findByUsername("alice")).thenReturn(Optional.of(user));
+        when(userRepository.save(any(User.class))).thenThrow(new RuntimeException("Database error"));
+
+        MockMultipartFile newFile = new MockMultipartFile("avatar", "new.png", "image/png", "new-bytes".getBytes());
+        assertThatThrownBy(() -> userService.updateAvatar("alice", newFile))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("Database error");
+
+        assertThat(Files.exists(oldFile)).isTrue();
+        try (var files = Files.list(avatarsDir)) {
+            assertThat(files.toList()).containsExactly(oldFile);
+        }
+    }
+
+    @Test
     void updateAvatarRejectsEmptyFile() {
         MockMultipartFile emptyFile = new MockMultipartFile("avatar", "empty.png", "image/png", new byte[0]);
         assertThatThrownBy(() -> userService.updateAvatar("alice", emptyFile))

@@ -10,6 +10,8 @@ interface UseCommentsReturn {
   loading: boolean;
   error: string | null;
   totalElements: number;
+  /** Comments and replies posted in this session, to keep a total count up to date without refetching. */
+  addedCount: number;
   hasMore: boolean;
   loadMore: () => Promise<void>;
   addComment: (text: string) => Promise<Comment>;
@@ -25,6 +27,7 @@ export function useComments(videoId: number | string | undefined): UseCommentsRe
   const [page, setPage] = useState<number>(0);
   const [totalPages, setTotalPages] = useState<number>(0);
   const [totalElements, setTotalElements] = useState<number>(0);
+  const [addedCount, setAddedCount] = useState<number>(0);
 
   const authContext = useContext(AuthContext);
 
@@ -49,7 +52,11 @@ export function useComments(videoId: number | string | undefined): UseCommentsRe
           { headers: getAuthHeaders() }
         );
         if (append) {
-          setComments((prev) => [...prev, ...res.data.content]);
+          // Offset pagination shifts after posting a comment, so skip roots that are already shown
+          setComments((prev) => {
+            const shown = new Set(prev.map((c) => c.id));
+            return [...prev, ...res.data.content.filter((c) => !shown.has(c.id))];
+          });
         } else {
           setComments(res.data.content);
         }
@@ -89,6 +96,7 @@ export function useComments(videoId: number | string | undefined): UseCommentsRe
       );
       setComments((prev) => [res.data, ...prev]);
       setTotalElements((prev) => prev + 1);
+      setAddedCount((prev) => prev + 1);
       return res.data;
     },
     [videoId, getAuthHeaders]
@@ -110,7 +118,7 @@ export function useComments(videoId: number | string | undefined): UseCommentsRe
           return c;
         })
       );
-      setTotalElements((prev) => prev + 1);
+      setAddedCount((prev) => prev + 1);
       return res.data;
     },
     [getAuthHeaders]
@@ -162,6 +170,7 @@ export function useComments(videoId: number | string | undefined): UseCommentsRe
     loading,
     error,
     totalElements,
+    addedCount,
     hasMore: page < totalPages - 1,
     loadMore,
     addComment,

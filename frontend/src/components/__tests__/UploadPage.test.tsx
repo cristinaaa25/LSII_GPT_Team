@@ -111,7 +111,24 @@ describe('UploadPage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Upload Video' }));
 
-    expect(await screen.findByText('Thumbnail must be an image file')).toBeInTheDocument();
+    expect(await screen.findByText('Thumbnail must be a PNG, JPG or WEBP image')).toBeInTheDocument();
+    expect(mockedVideoService.uploadVideo).not.toHaveBeenCalled();
+  });
+
+  it('rejects SVG thumbnails', async () => {
+    renderUploadPage();
+
+    const validFile = new File(['dummy'], 'video.mp4', { type: 'video/mp4' });
+    const svgThumb = new File(['<svg></svg>'], 'thumb.svg', { type: 'image/svg+xml' });
+
+    fireEvent.change(screen.getByLabelText(/Video File/i), { target: { files: [validFile] } });
+    fireEvent.change(screen.getByLabelText(/Title/i), { target: { value: 'Valid Title' } });
+    fireEvent.change(screen.getByLabelText(/Description/i), { target: { value: 'Valid Description' } });
+    fireEvent.change(screen.getByLabelText(/Thumbnail/i), { target: { files: [svgThumb] } });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Upload Video' }));
+
+    expect(await screen.findByText('Thumbnail must be a PNG, JPG or WEBP image')).toBeInTheDocument();
     expect(mockedVideoService.uploadVideo).not.toHaveBeenCalled();
   });
 

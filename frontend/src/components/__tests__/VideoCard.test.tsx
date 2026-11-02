@@ -25,7 +25,7 @@ describe('VideoCard', () => {
     expect(screen.getByText('1 view')).toBeInTheDocument();
   });
 
-  it('omits thumbnail and duration when they are missing', () => {
+  it('shows a placeholder instead of the thumbnail and omits duration when they are missing', () => {
     render(
       <MemoryRouter>
         <VideoCard video={{ id: 2, title: 'Bare', author: 'x', duration: null, views: 0, thumbnail: null }} />
@@ -35,7 +35,8 @@ describe('VideoCard', () => {
     const videoLink = screen.getByRole('link', { name: 'Bare' });
     expect(videoLink).toHaveAttribute('href', '/videos/2');
     expect(screen.getByRole('link', { name: /author x/i })).toHaveAttribute('href', '/users/x');
-    expect(screen.queryByRole('img')).not.toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'No thumbnail' })).toBeInTheDocument();
+    expect(screen.queryByRole('img', { name: 'Bare' })).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Duration')).not.toBeInTheDocument();
     expect(screen.getByText('0 views')).toBeInTheDocument();
   });
