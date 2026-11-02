@@ -98,7 +98,10 @@ describe('VideoDetailPage', () => {
     expect(videoEl).toHaveAttribute('src', 'development/42.mp4');
     expect(videoEl).toHaveAttribute('poster', 'development/42.webp');
 
-    expect(screen.getByText('David Attenborough')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'David Attenborough' })).toHaveAttribute(
+      'href',
+      '/users/David%20Attenborough'
+    );
     expect(screen.getByText('1.2K views')).toBeInTheDocument();
     expect(screen.getByText(/Uploaded on/)).toBeInTheDocument();
     expect(screen.getByText('350 likes')).toBeInTheDocument();

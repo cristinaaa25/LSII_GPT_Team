@@ -102,7 +102,9 @@ const VideoDetailPage: React.FC = () => {
         </div>
         <div className="d-flex flex-wrap justify-content-between align-items-center border-bottom pb-3 text-body-secondary small">
           <div className="d-flex align-items-center gap-3">
-            <span className="fw-bold text-body">{video.author}</span>
+            <Link to={`/users/${encodeURIComponent(video.author)}`} className="fw-bold text-body text-decoration-none">
+              {video.author}
+            </Link>
             <span>{formatViews(video.views)}</span>
             {video.uploadDate && <span>Uploaded on {formatDate(video.uploadDate)}</span>}
           </div>

@@ -443,7 +443,7 @@ public class VideoService {
         return userRepository.findByUsername(auth.getName()).orElse(null);
     }
 
-    static VideoSummaryDto toSummary(Video video) {
+    public static VideoSummaryDto toSummary(Video video) {
         return new VideoSummaryDto(
                 video.getId(),
                 video.getTitle(),
@@ -469,3 +469,4 @@ public class VideoService {
                 video.getThumbnailUrl());
     }
 }
+

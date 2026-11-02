@@ -1,4 +1,4 @@
-import { formatDate, formatDuration, formatViews } from '../format';
+import { formatDate, formatDuration, formatViews, resolveAvatarUrl } from '../format';
 
 describe('formatDuration', () => {
   it('formats minutes and seconds', () => {
@@ -37,5 +37,24 @@ describe('formatDate', () => {
     expect(formatDate(null)).toBe('');
     expect(formatDate(undefined)).toBe('');
     expect(formatDate('invalid-date')).toBe('');
+  });
+});
+
+describe('resolveAvatarUrl', () => {
+  it('returns undefined for empty, null or undefined input', () => {
+    expect(resolveAvatarUrl(null)).toBeUndefined();
+    expect(resolveAvatarUrl(undefined)).toBeUndefined();
+    expect(resolveAvatarUrl('')).toBeUndefined();
+    expect(resolveAvatarUrl('   ')).toBeUndefined();
+  });
+
+  it('returns absolute http(s) URLs as is', () => {
+    expect(resolveAvatarUrl('http://example.com/avatar.png')).toBe('http://example.com/avatar.png');
+    expect(resolveAvatarUrl('https://example.com/pic.jpg')).toBe('https://example.com/pic.jpg');
+  });
+
+  it('resolves relative media path against MEDIA_BASE_URL', () => {
+    expect(resolveAvatarUrl('/media/avatars/user.png')).toBe('development/avatars/user.png');
+    expect(resolveAvatarUrl('avatars/user.png')).toBe('development/avatars/user.png');
   });
 });
