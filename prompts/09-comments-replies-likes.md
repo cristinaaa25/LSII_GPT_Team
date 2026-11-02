@@ -1,7 +1,7 @@
 # Comments, replies and likes (US-09, US-10)
 
-**Approved on:** pending (PR #<n>)
-**Approved by:** <team members / PR link>
+**Approved on:** 2026-10-28 (PR #14)
+**Approved by:** team review in PR #14
 **Used for:** full-stack feature implementing video comments, nested replies, comment likes with idempotency, and frontend integration on the video detail page.
 
 ## Prompt

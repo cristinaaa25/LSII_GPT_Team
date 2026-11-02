@@ -68,8 +68,8 @@ export const UploadPage: React.FC = () => {
     }
 
     if (thumbnail) {
-      if (!thumbnail.type.startsWith('image/')) {
-        newErrors.thumbnail = 'Thumbnail must be an image file';
+      if (!['image/png', 'image/jpeg', 'image/webp'].includes(thumbnail.type)) {
+        newErrors.thumbnail = 'Thumbnail must be a PNG, JPG or WEBP image';
       }
     }
 
@@ -240,7 +240,7 @@ export const UploadPage: React.FC = () => {
                   type="file"
                   id="thumbnail-file"
                   aria-label="Thumbnail"
-                  accept="image/*"
+                  accept="image/png,image/jpeg,image/webp"
                   className={`form-control ${errors.thumbnail ? 'is-invalid' : ''}`}
                   onChange={handleThumbnailChange}
                   disabled={uploading}

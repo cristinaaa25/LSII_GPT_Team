@@ -57,6 +57,15 @@ describe('TagListEditor', () => {
     expect(screen.queryByText('cats')).not.toBeInTheDocument();
   });
 
+  it('removes only the clicked entry when an imported video repeats a tag', () => {
+    const onChange = jest.fn();
+    render(<Harness initial={['cats', 'cats', 'dogs']} onChange={onChange} />);
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Remove cats' })[1]);
+
+    expect(onChange).toHaveBeenCalledWith(['cats', 'dogs']);
+  });
+
   it('rejects case-insensitive duplicates', () => {
     const onChange = jest.fn();
     render(<Harness initial={['Cats']} onChange={onChange} />);

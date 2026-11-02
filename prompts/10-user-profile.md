@@ -1,7 +1,7 @@
 # User profile (US-03)
 
-**Approved on:** pending (PR #10)
-**Approved by:** <team members / PR link>
+**Approved on:** 2026-11-02 (PR #17)
+**Approved by:** team review in PR #17
 **Used for:** full-stack feature implementing user profiles (public profile at `/api/users/{username}`, own profile at `GET`/`PUT` `/api/users/me`, avatar upload at `POST` `/api/users/me/avatar`, frontend `/profile` and `/users/:username` pages, and author profile links).
 
 ## Prompt

@@ -23,7 +23,8 @@ const VideoDetailPage: React.FC = () => {
   const [editing, setEditing] = useState(false);
   const [saved, setSaved] = useState(false);
   const videoSrc = resolveMediaUrl(video?.videoUrl, `${id}.mp4`);
-  const posterSrc = resolveMediaUrl(video?.thumbnailUrl, `${id}.webp`);
+  // Uploads without ffmpeg have no thumbnail: no poster rather than guessing a file that does not exist
+  const posterSrc = video?.thumbnailUrl ? resolveMediaUrl(video.thumbnailUrl, '') : undefined;
 
   if (loading) {
     return (

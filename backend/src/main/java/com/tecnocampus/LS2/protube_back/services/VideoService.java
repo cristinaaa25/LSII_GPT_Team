@@ -29,9 +29,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -50,6 +48,19 @@ public class VideoService {
 
     public static final int MAX_PAGE_SIZE = 100;
     public static final long MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB
+    // Same limits as VideoUpdateRequestDto, so an uploaded video can always be saved again from the editor
+    public static final int MAX_DESCRIPTION_LENGTH = 5000;
+    public static final int MAX_TAGS = 20;
+    public static final int MAX_TAG_LENGTH = 50;
+    public static final int MAX_CATEGORIES = 5;
+    public static final int MAX_CATEGORY_LENGTH = 100;
+    private static final long FFMPEG_TIMEOUT_SECONDS = 10;
+
+    // Raster formats only: an SVG served from /media could run scripts on our origin
+    private static final Map<String, String> THUMBNAIL_EXTENSIONS = Map.of(
+            "image/png", ".png",
+            "image/jpeg", ".jpg",
+            "image/webp", ".webp");
 
     private static final Sort NEWEST_FIRST = Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("id"));
 
@@ -71,14 +82,6 @@ public class VideoService {
         this.videoViewRepository = videoViewRepository;
         this.userRepository = userRepository;
         this.storeDir = storeDir != null ? storeDir : "target/test-store/";
-    }
-
-    public VideoService(
-            VideoRepository videoRepository,
-            CommentRepository commentRepository,
-            VideoViewRepository videoViewRepository,
-            UserRepository userRepository) {
-        this(videoRepository, commentRepository, videoViewRepository, userRepository, "target/test-store/");
     }
 
     @Transactional(readOnly = true)
@@ -168,21 +171,27 @@ public class VideoService {
         if (description == null || description.isBlank()) {
             throw new InvalidRequestException("Description is required");
         }
+        if (description.trim().length() > MAX_DESCRIPTION_LENGTH) {
+            throw new InvalidRequestException("Description must not exceed " + MAX_DESCRIPTION_LENGTH + " characters");
+        }
 
         String thumbExt = ".webp";
         if (thumbnail != null && !thumbnail.isEmpty()) {
             String thumbContentType = thumbnail.getContentType();
-            if (thumbContentType == null || !thumbContentType.startsWith("image/")) {
-                throw new InvalidRequestException("Thumbnail must be an image file");
+            String allowedExt = thumbContentType == null
+                    ? null
+                    : THUMBNAIL_EXTENSIONS.get(thumbContentType.toLowerCase(Locale.ROOT));
+            if (allowedExt == null) {
+                throw new InvalidRequestException("Thumbnail must be a PNG, JPG or WEBP image");
             }
-            String originalThumb = thumbnail.getOriginalFilename();
-            if (originalThumb != null && originalThumb.contains(".")) {
-                thumbExt = originalThumb.substring(originalThumb.lastIndexOf(".")).toLowerCase(Locale.ROOT);
-            }
+            // Taken from the validated type, never from the user's file name
+            thumbExt = allowedExt;
         }
 
-        List<String> cleanTags = parseList(tags);
-        List<String> cleanCategories = parseList(categories);
+        List<String> cleanTags = normalizeLabels(splitCommaSeparated(tags));
+        List<String> cleanCategories = normalizeLabels(splitCommaSeparated(categories));
+        validateLabels(cleanTags, MAX_TAGS, MAX_TAG_LENGTH, "tags");
+        validateLabels(cleanCategories, MAX_CATEGORIES, MAX_CATEGORY_LENGTH, "categories");
 
         Path tempVideo = null;
         Path tempThumb = null;
@@ -298,86 +307,129 @@ public class VideoService {
     }
 
     private boolean runFfmpegFrameExtract(Path videoPath, Path outputPath, String timestamp) {
-        try {
-            ProcessBuilder pb = new ProcessBuilder(
-                    "ffmpeg", "-y", "-ss", timestamp,
-                    "-i", videoPath.toAbsolutePath().toString(),
-                    "-vframes", "1",
-                    outputPath.toAbsolutePath().toString()
-            );
-            pb.redirectErrorStream(true);
-            Process process = pb.start();
-            boolean finished = process.waitFor(10, TimeUnit.SECONDS);
-            return finished && process.exitValue() == 0;
-        } catch (Exception e) {
-            return false;
-        }
+        List<String> command = List.of(
+                "ffmpeg", "-y", "-ss", timestamp,
+                "-i", videoPath.toAbsolutePath().toString(),
+                "-vframes", "1",
+                outputPath.toAbsolutePath().toString());
+        return runTool(command, null);
     }
 
     VideoProbe probeVideo(Path videoPath) {
+        Path output = null;
         try {
-            ProcessBuilder pb = new ProcessBuilder(
+            output = Files.createTempFile("protube-probe-", ".txt");
+            List<String> command = List.of(
                     "ffprobe", "-v", "error",
+                    "-select_streams", "v:0",
                     "-show_entries", "stream=width,height:format=duration",
                     "-of", "default=noprint_wrappers=1:nokey=1",
-                    videoPath.toAbsolutePath().toString()
-            );
-            pb.redirectErrorStream(true);
-            Process process = pb.start();
-            boolean finished = process.waitFor(10, TimeUnit.SECONDS);
-            if (finished && process.exitValue() == 0) {
-                try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
-                    List<String> lines = reader.lines().filter(s -> !s.isBlank()).toList();
-                    Integer width = null;
-                    Integer height = null;
-                    Double duration = null;
-                    if (!lines.isEmpty()) {
-                        try {
-                            width = Integer.parseInt(lines.get(0).trim());
-                        } catch (NumberFormatException ignored) {}
-                    }
-                    if (lines.size() > 1) {
-                        try {
-                            height = Integer.parseInt(lines.get(1).trim());
-                        } catch (NumberFormatException ignored) {}
-                    }
-                    if (lines.size() > 2) {
-                        try {
-                            duration = Double.parseDouble(lines.get(2).trim());
-                        } catch (NumberFormatException ignored) {}
-                    }
-                    return new VideoProbe(duration, width, height);
-                }
+                    videoPath.toAbsolutePath().toString());
+            if (runTool(command, output)) {
+                List<String> lines = Files.readAllLines(output).stream().filter(s -> !s.isBlank()).toList();
+                return new VideoProbe(
+                        lines.size() > 2 ? parseDouble(lines.get(2)) : null,
+                        !lines.isEmpty() ? parseInteger(lines.get(0)) : null,
+                        lines.size() > 1 ? parseInteger(lines.get(1)) : null);
             }
-        } catch (Exception e) {
-            LOG.debug("ffprobe not available or probe failed: {}", e.getMessage());
+        } catch (IOException e) {
+            LOG.warn("Could not read ffprobe output: {}", e.getMessage());
+        } finally {
+            deleteQuietly(output);
         }
         return new VideoProbe(null, null, null);
     }
 
+    /**
+     * Runs ffmpeg/ffprobe with a timeout. Output goes to a file (or is discarded) so a full pipe can never block
+     * the process, and a process that does not finish in time is killed.
+     */
+    private boolean runTool(List<String> command, Path stdout) {
+        Process process = null;
+        try {
+            ProcessBuilder pb = new ProcessBuilder(command)
+                    .redirectError(ProcessBuilder.Redirect.DISCARD)
+                    .redirectOutput(stdout != null
+                            ? ProcessBuilder.Redirect.to(stdout.toFile())
+                            : ProcessBuilder.Redirect.DISCARD);
+            process = pb.start();
+            if (!process.waitFor(FFMPEG_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
+                LOG.warn("{} did not finish in {} s and was killed", command.get(0), FFMPEG_TIMEOUT_SECONDS);
+                return false;
+            }
+            return process.exitValue() == 0;
+        } catch (IOException e) {
+            // Typically "Cannot run program": without ffmpeg uploads have no thumbnail, duration or resolution
+            LOG.warn("{} is not available, skipping: {}", command.get(0), e.getMessage());
+            return false;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return false;
+        } finally {
+            if (process != null && process.isAlive()) {
+                process.destroyForcibly();
+            }
+        }
+    }
+
+    private static Integer parseInteger(String value) {
+        try {
+            return Integer.parseInt(value.trim());
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    private static Double parseDouble(String value) {
+        try {
+            return Double.parseDouble(value.trim());
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    private static void deleteQuietly(Path path) {
+        if (path == null) {
+            return;
+        }
+        try {
+            Files.deleteIfExists(path);
+        } catch (IOException ignored) {
+            // Best effort: it is only a temporary file
+        }
+    }
+
     record VideoProbe(Double duration, Integer width, Integer height) {}
 
-    private static List<String> parseList(List<String> values) {
-        if (values == null) {
-            return new ArrayList<>();
-        }
+    /** Splits form values like {@code "a, b"} into separate entries; blanks are dropped. */
+    private static List<String> splitCommaSeparated(List<String> values) {
         List<String> result = new ArrayList<>();
-        for (String val : values) {
-            if (val != null) {
-                for (String part : val.split(",")) {
-                    String trimmed = part.trim();
-                    if (!trimmed.isEmpty()) {
-                        if (trimmed.length() > 255) {
-                            trimmed = trimmed.substring(0, 255);
-                        }
-                        if (!result.contains(trimmed)) {
-                            result.add(trimmed);
-                        }
-                    }
+        if (values == null) {
+            return result;
+        }
+        for (String value : values) {
+            if (value == null) {
+                continue;
+            }
+            for (String part : value.split(",")) {
+                if (!part.isBlank()) {
+                    result.add(part);
                 }
             }
         }
         return result;
+    }
+
+    private static void validateLabels(List<String> labels, int maxCount, int maxLength, String name) {
+        if (labels.size() > maxCount) {
+            throw new InvalidRequestException("A video can have at most " + maxCount + " " + name);
+        }
+        for (String label : labels) {
+            if (label.length() > maxLength) {
+                throw new InvalidRequestException(
+                        "Each of the " + name + " must not exceed " + maxLength + " characters");
+            }
+        }
     }
 
     /** Replaces title, description, tags and categories. Only the uploader may edit (404 before 403). */

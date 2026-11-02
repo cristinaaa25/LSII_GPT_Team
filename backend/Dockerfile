@@ -17,6 +17,11 @@ RUN mvn -Pprod clean package -DskipTests
 FROM eclipse-temurin:21-jre
 WORKDIR /app
 
+# ffmpeg/ffprobe generate the thumbnail, duration and resolution of uploaded videos
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
+
 # Copy executable jar from build stage
 COPY --from=build /workspace/backend/target/protube-back-*.jar app.jar
 

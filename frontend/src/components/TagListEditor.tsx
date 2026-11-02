@@ -46,15 +46,19 @@ const TagListEditor: React.FC<Props> = ({ id, label, values, onChange, maxItems,
       </label>
       {values.length > 0 && (
         <ul className="list-unstyled d-flex flex-wrap gap-2 mb-2" aria-label={`${label} list`}>
-          {values.map((value) => (
-            <li key={value} className="badge bg-secondary-subtle text-secondary-emphasis d-flex align-items-center">
+          {values.map((value, index) => (
+            // Imported videos may repeat a tag, so the text alone is not a unique key
+            <li
+              key={`${index}-${value}`}
+              className="badge bg-secondary-subtle text-secondary-emphasis d-flex align-items-center"
+            >
               <span>{value}</span>
               <button
                 type="button"
                 className="btn-close ms-2"
                 style={{ fontSize: '0.6rem' }}
                 aria-label={`Remove ${value}`}
-                onClick={() => onChange(values.filter((v) => v !== value))}
+                onClick={() => onChange(values.filter((_, i) => i !== index))}
               />
             </li>
           ))}

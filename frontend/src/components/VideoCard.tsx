@@ -16,13 +16,21 @@ const VideoCard: React.FC<Props> = ({ video }) => {
       <Link to={`/videos/${video.id}`} className="text-decoration-none text-reset d-block">
         <div className="position-relative">
           <div className="ratio ratio-16x9 bg-dark rounded-top overflow-hidden">
-            {video.thumbnail && (
+            {video.thumbnail ? (
               <img
                 src={`${getEnv().MEDIA_BASE_URL}/${video.thumbnail}`}
                 alt={video.title}
                 className="object-fit-cover"
                 loading="lazy"
               />
+            ) : (
+              <div
+                className="d-flex align-items-center justify-content-center text-white-50 fs-1"
+                role="img"
+                aria-label="No thumbnail"
+              >
+                ▶
+              </div>
             )}
           </div>
           {duration && (

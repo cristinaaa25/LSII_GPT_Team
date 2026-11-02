@@ -1,7 +1,7 @@
 # Video upload: authenticated users upload videos (US-06)
 
-**Approved on:** pending (PR #<n>)
-**Approved by:** <team members / PR link>
+**Approved on:** 2026-10-28 (PR #15)
+**Approved by:** team review in PR #15
 **Used for:** full-stack feature implementing video upload (backend multipart REST endpoint, ffmpeg thumbnail generation with optional custom image upload, atomic file move & cleanup, React upload page behind ProtectedRoute with upload progress bar, and comprehensive test suite).
 
 ## Prompt

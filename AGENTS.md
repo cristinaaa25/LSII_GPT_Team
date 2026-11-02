@@ -97,3 +97,8 @@ Mistakes the agent has repeated. Add new ones after each sprint retrospective.
   not only Vite, before closing a story.
 * `MvcConfig` uses `@EnableWebMvc`, so `spring.jackson.*` properties are ignored and `Instant`/dates are sent as
   epoch numbers. Annotate date fields in DTOs with `@JsonFormat(shape = JsonFormat.Shape.STRING)` (ISO-8601).
+* Files uploaded by users are served from `/media/**` on our own origin. Accept images only from a raster
+  whitelist (`image/png`, `image/jpeg`, `image/webp`), never `image/*`, and derive the stored extension from the
+  validated content type, not from the user's file name: an SVG can run scripts and read the JWT.
+* Upload thumbnails, duration and resolution need `ffmpeg`/`ffprobe`, installed in `backend/Dockerfile`. Test
+  uploads in Docker, not only locally where ffmpeg may already be on the `PATH`.

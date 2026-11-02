@@ -165,6 +165,15 @@ describe('VideoDetailPage', () => {
     expect(videoEl).toHaveAttribute('poster', 'https://cdn.example.com/media/42.webp');
   });
 
+  it('has no poster when the video has no thumbnail instead of guessing a file name', async () => {
+    mockVideoResponse({ ...sampleVideo, thumbnailUrl: null });
+
+    renderWithRoute();
+
+    const videoEl = await screen.findByLabelText('Amazing Nature');
+    expect(videoEl).not.toHaveAttribute('poster');
+  });
+
   it('shows not-found state when API returns 404', async () => {
     mockedGet.mockRejectedValueOnce({
       isAxiosError: true,
