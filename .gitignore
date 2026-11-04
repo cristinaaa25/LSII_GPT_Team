@@ -2,6 +2,7 @@
 .idea/
 .run/
 .videos/
+videos/
 # Personal AI tool settings (not shared)
 .claude/settings.local.json
 

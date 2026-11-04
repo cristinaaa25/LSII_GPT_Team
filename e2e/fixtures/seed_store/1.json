@@ -1,0 +1,25 @@
+{
+  "id": 1,
+  "title": "Welcome to ProTube - Seed Video",
+  "duration": 2.0,
+  "width": 320,
+  "height": 240,
+  "user": "seed_creator",
+  "timestamp": 1700000000,
+  "meta": {
+    "description": "Initial seed video loaded on startup for catalog and playback verification.",
+    "categories": ["Technology", "Testing"],
+    "tags": ["seed", "protube", "e2e"],
+    "view_count": 15,
+    "like_count": 5,
+    "channel": "ProTube Team",
+    "comments": [
+      {
+        "text": "Initial seed comment for testing",
+        "author": "tester",
+        "timestamp": 1700000100,
+        "like_count": 1
+      }
+    ]
+  }
+}

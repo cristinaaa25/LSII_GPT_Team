@@ -1,0 +1,17 @@
+{
+  "name": "protube-e2e",
+  "version": "1.0.0",
+  "private": true,
+  "description": "End-to-end tests for ProTube using Playwright (NFR-02)",
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:ui": "playwright test --ui",
+    "test:debug": "playwright test --debug"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.50.0",
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.0"
+  }
+}
