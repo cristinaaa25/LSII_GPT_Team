@@ -1,0 +1,28 @@
+# Git
+.git
+.gitignore
+
+# Build outputs
+**/target/
+**/dist/
+**/coverage/
+
+# Dependencies
+**/node_modules/
+
+# Environment files and secrets
+.env
+.env.*
+!.env.example
+!.env.development
+!.env.production
+
+# IDE and tooling
+.idea/
+.run/
+*.iml
+.vscode/
+
+# OS metadata
+.DS_Store
+Thumbs.db

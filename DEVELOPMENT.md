@@ -45,9 +45,10 @@ python3 main.py --store=/absolute/path/to/videos --id=10 --videos=../../resource
 | `ENV_PROTUBE_STORE_DIR`            | always                  | Absolute path of the video store folder. **End it with a path separator** (`/` or `\`) — it is used as a `file:` prefix to serve `/media/**`. |
 | `ENV_PROTUBE_GOOGLE_CLIENT_ID`     | Google OAuth login      | Google OAuth client id                                                                           |
 | `ENV_PROTUBE_GOOGLE_CLIENT_SECRET` | Google OAuth login      | Google OAuth client secret                                                                       |
-| `ENV_PROTUBE_DB_USER`              | `prod` profile          | Database user (use `sa` with the default H2 datasource)                                          |
-| `ENV_PROTUBE_DB_PWD`               | `prod` profile          | Database password (empty with the default H2 datasource)                                         |
-| `ENV_PROTUBE_DB`                   | `prod` + PostgreSQL     | PostgreSQL database name (see [Using PostgreSQL](#using-postgresql))                              |
+| `ENV_PROTUBE_DB_USER`              | `dev` and `prod`        | PostgreSQL database user                                                                         |
+| `ENV_PROTUBE_DB_PASS`              | `dev` and `prod`        | PostgreSQL database password                                                                     |
+| `ENV_PROTUBE_DB`                   | `dev` and `prod`        | PostgreSQL database name (see [Using PostgreSQL](#using-postgresql))                              |
+| `ENV_PROTUBE_DB_HOST`              | optional (`localhost`)  | PostgreSQL database host (defaults to `localhost`)                                               |
 
 Never commit real secrets. Set them in your shell, your OS, or your (local, uncommitted) IDE run configuration.
 
@@ -77,8 +78,7 @@ mvn spring-boot:run
 ```
 
 * Starts on **http://localhost:8080** with the `dev` profile (active by default through the Maven `dev` profile).
-* `dev` uses an in-memory H2 database and loads initial data (`pro_tube.load_initial_data=true`). All data is lost
-  on restart.
+* `dev` persists data in PostgreSQL (start it with `docker compose up -d db`) and validates the schema against Flyway migrations (`ddl-auto=validate`). Initial test data loading is controlled by `pro_tube.load_initial_data`: when `true` (default in `dev`), every `<id>.json` in the store folder is imported on startup with its comments and a placeholder author per channel/commenter. The import is idempotent (videos already imported, matched by store id, are skipped). Unit/slice tests use an in-memory database with PostgreSQL compatibility mode.
 * From IntelliJ you can instead use the shared **ProtubeBackApplication** run configuration (`.run/`) — edit its
   environment variables to point to your own store folder.
 * CORS is open for `/api/**` and `/auth/**`, so the Vite dev server can call the API directly.
@@ -110,7 +110,7 @@ cd backend
 mvn clean verify                          # build + all tests
 mvn test -Dtest=ClassName                 # one test class
 mvn test -Dtest=ClassName#methodName      # one test method
-mvn clean verify -Pcoverage               # tests + JaCoCo report → target/site/jacoco/index.html
+mvn clean verify                          # tests + JaCoCo report → target/site/jacoco/index.html
 ```
 
 ### Frontend
@@ -128,11 +128,12 @@ The MVP requires **more than 50% coverage** on both apps.
 
 ### CI
 
-`.github/workflows/main.yml` runs on every PR and push to `main`:
+`.github/workflows/main.yml` runs on every PR and push to `develop` and `main`:
 
-1. Frontend: `npm ci` → `npm run build` → `npm run test` → `npm run lint`
-2. Backend: `./mvnw clean verify -Pcoverage`
-3. Uploads both coverage reports as build artifacts.
+1. **Frontend (`Frontend`):** `npm ci` → `npm run lint` → `npm run build` → `npm run test` (with npm caching and coverage thresholds; uploads `frontend-coverage-report`).
+2. **Backend (`Backend`):** `mvn clean verify` (with Maven caching and JaCoCo coverage thresholds; uploads `backend-coverage-report`).
+3. **Docker (`Docker Build`):** `docker compose config` → `docker compose build` (validates containerized delivery and multi-stage Docker build).
+4. **E2E (`E2E Tests`):** runs E2E test suite (NFR-02) when configured.
 
 Before opening a PR, run the same steps locally so the pipeline stays green.
 
@@ -166,25 +167,60 @@ java -jar target/protube-back-0.0.1-SNAPSHOT.jar
 ```
 
 (IntelliJ: the **Create jar** run configuration runs `package` with the `prod` profile.) Remember that
-`ENV_PROTUBE_STORE_DIR`, `ENV_PROTUBE_DB_USER` and `ENV_PROTUBE_DB_PWD` must be set in the environment where the jar
+`ENV_PROTUBE_STORE_DIR`, `ENV_PROTUBE_DB_USER`, and `ENV_PROTUBE_DB_PASS` must be set in the environment where the jar
 runs.
 
 To only preview the production frontend bundle, without the backend: `cd frontend && npm run build:prod && npm run preview`.
 
+### Run with Docker Compose (NFR-03)
+
+Starts the entire application (PostgreSQL and Spring Boot with bundled frontend) with a single command from the repository root:
+
+1. Copy the environment file template:
+   ```bash
+   cp .env.example .env
+   ```
+   Adjust any values in `.env` if needed (e.g. `ENV_PROTUBE_STORE_DIR` pointing to your local videos directory).
+
+2. Build and start all services:
+   ```bash
+   docker compose up --build
+   ```
+
+* **`db` service:** Runs PostgreSQL 16 on port `5432` with data persisted in a named volume (`postgres_data`). Includes an automated healthcheck via `pg_isready`.
+* **`app` service:** Multi-stage build (`backend/Dockerfile`) that compiles the Spring Boot backend and bundles the React frontend using Maven `-Pprod`, running on Java 21 JRE. Waits until `db` is healthy before starting. Maps port `8080` to the host and mounts the video store directory as a volume (`/videos/`). It sets `PRO_TUBE_LOAD_INITIAL_DATA: "true"`, which overrides `pro_tube.load_initial_data=false` from the `prod` profile, so the video store is imported on startup (idempotently) and the catalog is not empty.
+* Open **http://localhost:8080** in your browser.
+* To stop all containers: `docker compose down`.
+
 ### Using PostgreSQL
 
-The `prod` profile still points to an in-memory H2 database, which is only a placeholder — the MVP requires a real
-database (NFR-01 in [REQUIREMENT.md](./REQUIREMENT.md)). The PostgreSQL driver is already a dependency. To switch:
+The `prod` profile targets PostgreSQL (NFR-01 in [REQUIREMENT.md](./REQUIREMENT.md)). When running with Docker Compose, this is set up automatically.
 
-1. Start a PostgreSQL server (e.g. `docker run -d --name protube-db -p 5432:5432 -e POSTGRES_PASSWORD=secret -e POSTGRES_DB=protube postgres:16`).
-2. In `backend/src/main/resources/application.properties`, in the `prod` section, uncomment the PostgreSQL
-   `spring.datasource.url` line and remove the H2 one.
-3. Set `ENV_PROTUBE_DB` (e.g. `protube`), `ENV_PROTUBE_DB_USER` (e.g. `postgres`) and `ENV_PROTUBE_DB_PWD`.
+For running PostgreSQL separately outside Docker Compose:
+1. Start a PostgreSQL server (e.g. `docker run -d --name protube-db -p 5432:5432 -e POSTGRES_USER=root -e POSTGRES_PASSWORD=pwd -e POSTGRES_DB=protube postgres:16`).
+2. Ensure `ENV_PROTUBE_DB_HOST` (e.g. `localhost`), `ENV_PROTUBE_DB` (e.g. `protube`), `ENV_PROTUBE_DB_USER` (e.g. `root`), and `ENV_PROTUBE_DB_PASS` (e.g. `pwd`) are set in your environment.
+
+Both `dev` and `prod` profiles persist data directly in PostgreSQL (NFR-01 in [REQUIREMENT.md](./REQUIREMENT.md)). The schema is automatically managed with Flyway migrations (`src/main/resources/db/migration`), and Hibernate validates the schema (`ddl-auto=validate`).
+
+To run PostgreSQL locally:
+
+1. Start the PostgreSQL container with Docker Compose:
+   ```bash
+   docker compose up -d db
+   ```
+2. Set the required database environment variables:
+   * `ENV_PROTUBE_DB` (e.g. `protube`)
+   * `ENV_PROTUBE_DB_USER` (e.g. `postgres`)
+   * `ENV_PROTUBE_DB_PASS` (e.g. your database password)
+   * `ENV_PROTUBE_DB_HOST` (optional, defaults to `localhost`)
 
 ## 6. Workflow reminders
 
-* `main` is protected: work in a branch and open a Pull Request; it needs at least one approval and all Copilot
-  review comments resolved before merging.
+* Git flow: `main` (released, tagged) and `develop` (integration) are protected by a ruleset. Work in
+  `task/<ticket>-name` or `feature/<name>` branched from an updated `develop`, and open the PR **into `develop`**.
+  Only `release/*` and `hotfix/*` PRs target `main`. Branch table: `AGENTS.md` → Conventions.
+* A PR needs 1 approval on its latest push, all Copilot review comments resolved and green CI; merge with squash
+  and delete the branch.
 * Use [conventional commits](https://www.conventionalcommits.org/en/v1.0.0/#summary) and reference the task.
 * If AI generated part of a change, mark it in the commit message and reference the prompt from `prompts/` that was
   used (see [prompts/README.md](./prompts/README.md)).
@@ -200,3 +236,23 @@ database (NFR-01 in [REQUIREMENT.md](./REQUIREMENT.md)). The PostgreSQL driver i
 * **Frontend can't reach the API in dev**: make sure the backend is running on port 8080, or adjust
   `VITE_API_DOMAIN` in `.env.development.local`.
 * **Port already in use**: change `server.port` (backend) or run `npm run dev -- --port 5174` (frontend).
+
+## 7. AI configuration
+
+The team's AI setup is shared and versioned (NFR-06). Change it only through a PR.
+
+| File / folder                         | Read by                    | Purpose                                              |
+|---------------------------------------|----------------------------|------------------------------------------------------|
+| `AGENTS.md`                           | all tools                  | Single source of truth: commands, conventions, DoD   |
+| `backend/AGENTS.md`, `frontend/AGENTS.md` | all tools (nested)     | Rules loaded only when working in that folder        |
+| `CLAUDE.md` (root, backend, frontend) | Claude Code                | One line: `@AGENTS.md`                               |
+| `.agents/skills/<name>/SKILL.md`      | Antigravity (source)       | Reusable task playbooks                              |
+| `.claude/skills/<name>/SKILL.md`      | Claude Code                | Wrappers pointing to `.agents/skills/`               |
+| `.claude/agents/reviewer.md`          | Claude Code                | Read-only reviewer subagent                          |
+| `.claude/settings.json`               | Claude Code                | Shared permissions (personal ones: `settings.local.json`) |
+| `.github/copilot-instructions.md`     | Copilot (PR review)        | Review criteria                                      |
+| `prompts/`                            | humans + all tools         | Approved prompts (NFR-07)                            |
+
+Available skills: `create-rest-endpoint`, `create-react-component`, `save-ai-prompt`, `review-changes`,
+`pr-description`. To add a skill, create `.agents/skills/<name>/SKILL.md` and a matching wrapper in
+`.claude/skills/<name>/SKILL.md` with the same `name` and `description`.

@@ -1,41 +1,72 @@
+import React from 'react';
 import './App.css';
-import { useAllVideos } from './useAllVideos';
+import { BrowserRouter, Route, Routes } from 'react-router-dom';
+import VideoCatalog from './components/VideoCatalog';
+import VideoDetailPage from './components/VideoDetailPage';
+import LoginPage from './components/LoginPage';
+import RegisterPage from './components/RegisterPage';
+import Header from './components/Header';
+import SearchPage from './components/SearchPage';
+import UploadPage from './components/UploadPage';
+import ProtectedRoute from './components/ProtectedRoute';
+import ProfilePage from './components/ProfilePage';
+import PublicProfilePage from './components/PublicProfilePage';
+import { AuthProvider } from './context/AuthProvider';
 
-function App() {
+interface AppProps {
+  router?: 'browser' | 'none';
+}
+
+export const AppContent: React.FC = () => {
   return (
     <div className="App">
-      <header className="App-header">
-        <img src="/protube-logo-removebg-preview.png" className="App-logo" alt="logo" />
-        <ContentApp />
-      </header>
+      <Header />
+      <main className="container py-4">
+        <Routes>
+          <Route path="/" element={<VideoCatalog />} />
+          <Route path="/search" element={<SearchPage />} />
+          <Route path="/videos/:id" element={<VideoDetailPage />} />
+          <Route
+            path="/upload"
+            element={
+              <ProtectedRoute>
+                <UploadPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+                <ProfilePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route path="/users/:username" element={<PublicProfilePage />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
+        </Routes>
+      </main>
     </div>
   );
-}
+};
 
-function ContentApp() {
-  const { loading, message, value } = useAllVideos();
-  switch (loading) {
-    case 'loading':
-      return <div>Loading...</div>;
-    case 'error':
-      return (
-        <div>
-          <h3>Error</h3> <p>{message}</p>
-        </div>
-      );
-    case 'success':
-      return (
-        <>
-          <strong>Videos availables:</strong>
-          <ul>
-            {value.map((item) => (
-              <li>{item}</li>
-            ))}
-          </ul>
-        </>
-      );
+export const App: React.FC<AppProps> = ({ router = 'browser' }) => {
+  if (router === 'none') {
+    return (
+      <AuthProvider>
+        <AppContent />
+      </AuthProvider>
+    );
   }
-  return <div>Idle...</div>;
-}
+
+  return (
+    <BrowserRouter>
+      <AuthProvider>
+        <AppContent />
+      </AuthProvider>
+    </BrowserRouter>
+  );
+};
 
 export default App;

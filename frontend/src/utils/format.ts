@@ -1,0 +1,39 @@
+import { getEnv } from './Env';
+
+/** Formats seconds as m:ss or h:mm:ss. */
+export function formatDuration(seconds: number | null | undefined): string {
+  if (seconds == null || !Number.isFinite(seconds) || seconds < 0) return '';
+  const total = Math.round(seconds);
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = String(total % 60).padStart(2, '0');
+  return h > 0 ? `${h}:${String(m).padStart(2, '0')}:${s}` : `${m}:${s}`;
+}
+
+/** Formats a view count compactly, e.g. 1234 -> "1.2K views". */
+export function formatViews(views: number): string {
+  const compact = new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 }).format(views);
+  return `${compact} ${views === 1 ? 'view' : 'views'}`;
+}
+
+/** Formats an ISO date string to a human-readable date. */
+export function formatDate(dateString: string | null | undefined): string {
+  if (!dateString) return '';
+  const date = new Date(dateString);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  });
+}
+
+/** Resolves an avatar or media URL against MEDIA_BASE_URL. */
+export function resolveAvatarUrl(url: string | null | undefined): string | undefined {
+  if (!url) return undefined;
+  const trimmed = url.trim();
+  if (!trimmed) return undefined;
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  const path = trimmed.replace(/^\/?media\//, '').replace(/^\//, '');
+  return `${getEnv().MEDIA_BASE_URL}/${path}`;
+}
