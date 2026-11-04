@@ -11,6 +11,8 @@ import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 import org.springframework.test.context.ActiveProfiles;
 
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -59,6 +61,24 @@ class VideoViewRepositoryTest {
 
         List<VideoView> views = videoViewRepository.findByVideoId(video.getId());
         assertThat(views).hasSize(2);
+    }
+
+    @Test
+    void testFindByUploaderIdAndViewedAtAfter() {
+        Instant now = Instant.now();
+        Instant since = now.minus(30, ChronoUnit.DAYS);
+
+        VideoView recentView = new VideoView(video, user);
+        recentView.setViewedAt(now.minus(5, ChronoUnit.DAYS));
+        entityManager.persistFlushFind(recentView);
+
+        VideoView oldView = new VideoView(video);
+        oldView.setViewedAt(now.minus(40, ChronoUnit.DAYS));
+        entityManager.persistFlushFind(oldView);
+
+        List<VideoView> views = videoViewRepository.findByUploaderIdAndViewedAtAfter(user.getId(), since);
+        assertThat(views).hasSize(1);
+        assertThat(views.get(0).getId()).isEqualTo(recentView.getId());
     }
 
     @Test

@@ -2,13 +2,11 @@ package com.tecnocampus.LS2.protube_back.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tecnocampus.LS2.protube_back.configuration.SecurityConfig;
-import com.tecnocampus.LS2.protube_back.dto.UpdateProfileRequestDto;
-import com.tecnocampus.LS2.protube_back.dto.UserDto;
-import com.tecnocampus.LS2.protube_back.dto.UserProfileDto;
-import com.tecnocampus.LS2.protube_back.dto.VideoSummaryDto;
+import com.tecnocampus.LS2.protube_back.dto.*;
 import com.tecnocampus.LS2.protube_back.exception.InvalidRequestException;
 import com.tecnocampus.LS2.protube_back.exception.NotFoundException;
 import com.tecnocampus.LS2.protube_back.security.RestAuthenticationEntryPoint;
+import com.tecnocampus.LS2.protube_back.services.AnalyticsService;
 import com.tecnocampus.LS2.protube_back.services.UserService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,6 +19,7 @@ import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.time.Instant;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -43,6 +42,9 @@ class UserControllerTest {
 
     @MockBean
     UserService userService;
+
+    @MockBean
+    AnalyticsService analyticsService;
 
     @Test
     void getPublicProfileReturns200ForUnauthenticatedUser() throws Exception {
@@ -89,6 +91,49 @@ class UserControllerTest {
 
     @Test
     @WithMockUser(username = "alice")
+    void getMyAnalyticsReturns200WhenAuthenticated() throws Exception {
+        var totals = new AnalyticsTotalsDto(2, 100, 15, 8);
+        var video = new VideoAnalyticsDto(
+                10L,
+                "Demo Video",
+                "/media/thumb.webp",
+                Instant.parse("2026-11-01T12:00:00Z"),
+                45.5,
+                100,
+                15,
+                8
+        );
+        var dailyViews = List.of(new DailyViewsDto("2026-11-04", 5, 3, 2));
+        var analyticsDto = new UserAnalyticsDto(totals, List.of(video), dailyViews);
+
+        when(analyticsService.getUserAnalytics("alice")).thenReturn(analyticsDto);
+
+        mockMvc.perform(get("/api/users/me/analytics"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totals.videos").value(2))
+                .andExpect(jsonPath("$.totals.views").value(100))
+                .andExpect(jsonPath("$.totals.likes").value(15))
+                .andExpect(jsonPath("$.totals.comments").value(8))
+                .andExpect(jsonPath("$.videos[0].id").value(10))
+                .andExpect(jsonPath("$.videos[0].title").value("Demo Video"))
+                .andExpect(jsonPath("$.videos[0].duration").value(45.5))
+                .andExpect(jsonPath("$.videos[0].views").value(100))
+                .andExpect(jsonPath("$.videos[0].likes").value(15))
+                .andExpect(jsonPath("$.videos[0].comments").value(8))
+                .andExpect(jsonPath("$.viewsPerDay[0].date").value("2026-11-04"))
+                .andExpect(jsonPath("$.viewsPerDay[0].views").value(5))
+                .andExpect(jsonPath("$.viewsPerDay[0].authenticatedViews").value(3))
+                .andExpect(jsonPath("$.viewsPerDay[0].anonymousViews").value(2));
+    }
+
+    @Test
+    void getMyAnalyticsReturns401WhenUnauthenticated() throws Exception {
+        mockMvc.perform(get("/api/users/me/analytics"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @WithMockUser(username = "alice")
     void updateMeReturns200WhenValid() throws Exception {
         var request = new UpdateProfileRequestDto("New Alice", "Updated bio");
         var updated = new UserDto(1L, "alice", "alice@example.com", "New Alice", "/media/avatars/a.png", "Updated bio");
@@ -115,8 +160,8 @@ class UserControllerTest {
 
     @Test
     @WithMockUser(username = "alice")
-    void updateMeReturns400WhenValidationFails() throws Exception {
-        String longName = "A".repeat(101);
+    void updateMeReturns400WhenDisplayNameTooLong() throws Exception {
+        String longName = "a".repeat(101);
         var request = new UpdateProfileRequestDto(longName, "Bio");
 
         mockMvc.perform(put("/api/users/me")
