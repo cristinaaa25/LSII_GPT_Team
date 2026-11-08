@@ -207,4 +207,43 @@ describe('UploadPage', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('File size exceeds the 100MB limit');
     expect(screen.getByRole('button', { name: 'Upload Video' })).not.toBeDisabled();
   });
+
+  it('clears file and thumbnail errors when inputs change after validation failure', async () => {
+    renderUploadPage();
+
+    // Trigger validation error
+    fireEvent.click(screen.getByRole('button', { name: 'Upload Video' }));
+    expect(await screen.findByText('Video file is required')).toBeInTheDocument();
+
+    // Select file to clear error
+    const validFile = new File(['dummy'], 'video.mp4', { type: 'video/mp4' });
+    fireEvent.change(screen.getByLabelText(/Video File/i), { target: { files: [validFile] } });
+    expect(screen.queryByText('Video file is required')).not.toBeInTheDocument();
+
+    // Trigger thumbnail error
+    const badThumb = new File(['bad'], 'thumb.txt', { type: 'text/plain' });
+    fireEvent.change(screen.getByLabelText(/Thumbnail/i), { target: { files: [badThumb] } });
+    fireEvent.click(screen.getByRole('button', { name: 'Upload Video' }));
+    expect(await screen.findByText('Thumbnail must be a PNG, JPG or WEBP image')).toBeInTheDocument();
+
+    // Change thumbnail to clear error
+    const goodThumb = new File(['good'], 'thumb.png', { type: 'image/png' });
+    fireEvent.change(screen.getByLabelText(/Thumbnail/i), { target: { files: [goodThumb] } });
+    expect(screen.queryByText('Thumbnail must be a PNG, JPG or WEBP image')).not.toBeInTheDocument();
+  });
+
+  it('handles standard Error and unknown error on upload failure', async () => {
+    mockedVideoService.uploadVideo.mockRejectedValueOnce(new Error('Network upload failed'));
+
+    renderUploadPage();
+
+    const validFile = new File(['dummy'], 'video.mp4', { type: 'video/mp4' });
+    fireEvent.change(screen.getByLabelText(/Video File/i), { target: { files: [validFile] } });
+    fireEvent.change(screen.getByLabelText(/Title/i), { target: { value: 'Title' } });
+    fireEvent.change(screen.getByLabelText(/Description/i), { target: { value: 'Desc' } });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Upload Video' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Network upload failed');
+  });
 });

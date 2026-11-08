@@ -1,4 +1,4 @@
-import { formatDate, formatDuration, formatViews, resolveAvatarUrl } from '../format';
+import { formatChartDate, formatDate, formatDuration, formatViews, resolveAvatarUrl } from '../format';
 
 describe('formatDuration', () => {
   it('formats minutes and seconds', () => {
@@ -56,5 +56,17 @@ describe('resolveAvatarUrl', () => {
   it('resolves relative media path against MEDIA_BASE_URL', () => {
     expect(resolveAvatarUrl('/media/avatars/user.png')).toBe('development/avatars/user.png');
     expect(resolveAvatarUrl('avatars/user.png')).toBe('development/avatars/user.png');
+  });
+});
+
+describe('formatChartDate', () => {
+  it('slices MM-DD from ISO date string', () => {
+    expect(formatChartDate('2026-11-04')).toBe('11-04');
+  });
+
+  it('returns short or non-date strings unchanged', () => {
+    expect(formatChartDate('Nov')).toBe('Nov');
+    expect(formatChartDate(null)).toBe('');
+    expect(formatChartDate(undefined)).toBe('');
   });
 });

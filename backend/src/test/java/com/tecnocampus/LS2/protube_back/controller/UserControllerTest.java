@@ -15,6 +15,7 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -22,6 +23,8 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.time.Instant;
 import java.util.List;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
@@ -200,5 +203,36 @@ class UserControllerTest {
 
         mockMvc.perform(multipart("/api/users/me/avatar").file(badFile))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void directControllerCallsThrowBadCredentialsWhenPrincipalNull() {
+        UserController controller = new UserController(userService, analyticsService);
+        assertThatThrownBy(() -> controller.getMe(null))
+                .isInstanceOf(BadCredentialsException.class)
+                .hasMessage("Authentication required");
+
+        assertThatThrownBy(() -> controller.getMyAnalytics(null))
+                .isInstanceOf(BadCredentialsException.class)
+                .hasMessage("Authentication required");
+
+        assertThatThrownBy(() -> controller.updateMe(new UpdateProfileRequestDto("A", "B"), null))
+                .isInstanceOf(BadCredentialsException.class)
+                .hasMessage("Authentication required");
+
+        assertThatThrownBy(() -> controller.uploadAvatar(null, null, null))
+                .isInstanceOf(BadCredentialsException.class)
+                .hasMessage("Authentication required");
+    }
+
+    @Test
+    void uploadAvatarAcceptsFilePartWhenAvatarPartNull() {
+        UserController controller = new UserController(userService, analyticsService);
+        MockMultipartFile file = new MockMultipartFile("file", "test.png", "image/png", new byte[]{1});
+        var expected = new UserDto(1L, "alice", "alice@example.com", "Alice", "/media/avatars/test.png", "Bio");
+        when(userService.updateAvatar("alice", file)).thenReturn(expected);
+
+        var res = controller.uploadAvatar(null, file, () -> "alice");
+        assertThat(res.getBody()).isEqualTo(expected);
     }
 }

@@ -1,6 +1,7 @@
 import React from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { DailyViews } from '../types/analytics';
+import { formatChartDate } from '../utils/format';
 
 interface Props {
   data: DailyViews[];
@@ -15,12 +16,7 @@ export const ViewsOverTimeChart: React.FC<Props> = ({ data }) => {
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={data} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
-              <XAxis
-                dataKey="date"
-                tickFormatter={(val: string) => (typeof val === 'string' && val.length >= 10 ? val.slice(5) : val)}
-                stroke="#6c757d"
-                fontSize={12}
-              />
+              <XAxis dataKey="date" tickFormatter={formatChartDate} stroke="#6c757d" fontSize={12} />
               <YAxis allowDecimals={false} stroke="#6c757d" fontSize={12} />
               <Tooltip />
               <Legend />

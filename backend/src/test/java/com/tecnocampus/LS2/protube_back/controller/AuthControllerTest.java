@@ -20,6 +20,7 @@ import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -185,5 +186,13 @@ class AuthControllerTest {
     void meReturns401WhenUnauthenticated() throws Exception {
         mockMvc.perform(get("/api/auth/me"))
                 .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void meThrowsBadCredentialsWhenPrincipalNull() {
+        AuthController controller = new AuthController(authService);
+        assertThatThrownBy(() -> controller.me(null))
+                .isInstanceOf(BadCredentialsException.class)
+                .hasMessage("Authentication required");
     }
 }
