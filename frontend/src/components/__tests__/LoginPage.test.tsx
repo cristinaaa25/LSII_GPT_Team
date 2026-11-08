@@ -105,4 +105,28 @@ describe('LoginPage', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Invalid credentials');
     expect(screen.queryByText('Home Page Content')).not.toBeInTheDocument();
   });
+
+  it('displays generic error message when an Error is thrown', async () => {
+    mockedPost.mockRejectedValueOnce(new Error('Network failure'));
+
+    renderLoginPage();
+
+    fireEvent.change(screen.getByLabelText(/Email or Username/i), { target: { value: 'alice@example.com' } });
+    fireEvent.change(screen.getByLabelText(/Password/i), { target: { value: 'password123' } });
+    fireEvent.click(screen.getByRole('button', { name: /^Log In$/i }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Network failure');
+  });
+
+  it('displays fallback error message when unknown error is thrown', async () => {
+    mockedPost.mockRejectedValueOnce('Something unexpected');
+
+    renderLoginPage();
+
+    fireEvent.change(screen.getByLabelText(/Email or Username/i), { target: { value: 'alice@example.com' } });
+    fireEvent.change(screen.getByLabelText(/Password/i), { target: { value: 'password123' } });
+    fireEvent.click(screen.getByRole('button', { name: /^Log In$/i }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Login failed. Please check your credentials.');
+  });
 });

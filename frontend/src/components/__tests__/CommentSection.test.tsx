@@ -225,6 +225,25 @@ describe('CommentSection', () => {
     expect(screen.getByRole('heading', { level: 2, name: 'Comments (4)' })).toBeInTheDocument();
   });
 
+  it('displays error message when reply submission fails', async () => {
+    mockedGet.mockResolvedValueOnce({ data: mockPage });
+    mockedPost.mockRejectedValueOnce(new Error('Server error replying'));
+
+    renderWithAuth(<CommentSection videoId={42} />, true);
+
+    const replyToggleBtn = await screen.findByRole('button', { name: 'Reply to comment by alice' });
+    fireEvent.click(replyToggleBtn);
+
+    const replyInput = screen.getByPlaceholderText('Write a reply...');
+    fireEvent.change(replyInput, { target: { value: 'Will fail' } });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Reply' }));
+    });
+
+    expect(await screen.findByText('Server error replying')).toBeInTheDocument();
+  });
+
   it('cancelling reply closes the reply form', async () => {
     mockedGet.mockResolvedValueOnce({ data: mockPage });
 

@@ -210,4 +210,45 @@ describe('ProfilePage', () => {
 
     expect(await screen.findByText('Failed to upload')).toBeInTheDocument();
   });
+
+  it('returns null when user is not present in context', () => {
+    const contextWithoutUser = createAuthContext({ user: null });
+    const { container } = renderProfilePage(contextWithoutUser);
+    expect(container.firstChild).toBeNull();
+  });
+
+  it('resets selected file when file selection is cleared', () => {
+    renderProfilePage();
+
+    const fileInput = screen.getByLabelText('Choose avatar image') as HTMLInputElement;
+    const validFile = new File(['img'], 'pic.png', { type: 'image/png' });
+    fireEvent.change(fileInput, { target: { files: [validFile] } });
+
+    // Clearing file
+    fireEvent.change(fileInput, { target: { files: [] } });
+    expect(screen.getByRole('button', { name: 'Upload Avatar' })).toBeDisabled();
+  });
+
+  it('shows error if avatar upload is submitted without selecting a file', () => {
+    renderProfilePage();
+
+    const form = screen.getByRole('button', { name: 'Upload Avatar' }).closest('form')!;
+    fireEvent.submit(form);
+
+    expect(screen.getByText('Please select an image file first')).toBeInTheDocument();
+  });
+
+  it('handles non-Error rejection in profile update and avatar upload', async () => {
+    renderProfilePage();
+
+    mockedUserService.updateMyProfile.mockRejectedValueOnce('string error');
+    fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
+    expect(await screen.findByText('Failed to update profile')).toBeInTheDocument();
+
+    mockedUserService.uploadAvatar.mockRejectedValueOnce('string error');
+    const validFile = new File(['img'], 'pic.png', { type: 'image/png' });
+    fireEvent.change(screen.getByLabelText('Choose avatar image'), { target: { files: [validFile] } });
+    fireEvent.click(screen.getByRole('button', { name: 'Upload Avatar' }));
+    expect(await screen.findByText('Failed to upload avatar')).toBeInTheDocument();
+  });
 });
