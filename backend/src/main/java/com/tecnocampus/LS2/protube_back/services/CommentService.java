@@ -23,9 +23,14 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 @Service
 public class CommentService {
@@ -65,14 +70,37 @@ public class CommentService {
         Page<Comment> rootPage = commentRepository.findByVideoIdAndParentIsNullOrderByCreatedAtDesc(
                 videoId, PageRequest.of(page, size));
 
-        List<CommentDto> dtos = rootPage.getContent().stream()
-                .map(root -> {
-                    List<Comment> replies = commentRepository.findByParentIdOrderByCreatedAtAsc(root.getId());
-                    List<CommentDto> replyDtos = replies.stream()
-                            .map(r -> toDto(r, currentUserId, Collections.emptyList()))
-                            .toList();
-                    return toDto(root, currentUserId, replyDtos);
-                })
+        // Fixed number of queries per page: replies, like counts and likedByMe are loaded in batch, not per comment
+        List<Comment> roots = rootPage.getContent();
+        List<Long> rootIds = roots.stream().map(Comment::getId).toList();
+        List<Comment> replies = rootIds.isEmpty()
+                ? List.of()
+                : commentRepository.findByParentIdInOrderByCreatedAtAsc(rootIds);
+
+        List<Long> allIds = new ArrayList<>(rootIds);
+        replies.forEach(r -> allIds.add(r.getId()));
+
+        Map<Long, Long> likeCounts = new HashMap<>();
+        Set<Long> likedByMe = new HashSet<>();
+        if (!allIds.isEmpty()) {
+            commentLikeRepository.countByCommentIds(allIds)
+                    .forEach(c -> likeCounts.put(c.getCommentId(), c.getLikeCount()));
+            if (currentUserId != null) {
+                likedByMe.addAll(commentLikeRepository.findLikedCommentIds(currentUserId, allIds));
+            }
+        }
+
+        Map<Long, List<CommentDto>> repliesByParent = new HashMap<>();
+        for (Comment reply : replies) {
+            repliesByParent.computeIfAbsent(reply.getParent().getId(), k -> new ArrayList<>())
+                    .add(toDto(reply, likeCounts.getOrDefault(reply.getId(), 0L),
+                            likedByMe.contains(reply.getId()), Collections.emptyList()));
+        }
+
+        List<CommentDto> dtos = roots.stream()
+                .map(root -> toDto(root, likeCounts.getOrDefault(root.getId(), 0L),
+                        likedByMe.contains(root.getId()),
+                        repliesByParent.getOrDefault(root.getId(), Collections.emptyList())))
                 .toList();
 
         return new PageDto<>(
@@ -99,7 +127,7 @@ public class CommentService {
         Comment comment = new Comment(request.text().trim(), video, currentUser);
         Comment saved = commentRepository.save(comment);
 
-        return toDto(saved, currentUser.getId(), Collections.emptyList());
+        return toDto(saved, 0L, false, Collections.emptyList());
     }
 
     @Transactional
@@ -120,7 +148,7 @@ public class CommentService {
         Comment reply = new Comment(request.text().trim(), parent.getVideo(), currentUser, parent);
         Comment saved = commentRepository.save(reply);
 
-        return toDto(saved, currentUser.getId(), Collections.emptyList());
+        return toDto(saved, 0L, false, Collections.emptyList());
     }
 
     @Transactional
@@ -194,9 +222,7 @@ public class CommentService {
         return user;
     }
 
-    private CommentDto toDto(Comment comment, Long currentUserId, List<CommentDto> replies) {
-        long likeCount = commentLikeRepository.countByCommentId(comment.getId());
-        boolean likedByMe = currentUserId != null && commentLikeRepository.existsByCommentIdAndUserId(comment.getId(), currentUserId);
+    private CommentDto toDto(Comment comment, long likeCount, boolean likedByMe, List<CommentDto> replies) {
         String authorName = comment.getAuthor() != null ? comment.getAuthor().getUsername() : "unknown";
         Long parentId = comment.getParent() != null ? comment.getParent().getId() : null;
         Long videoId = comment.getVideo() != null ? comment.getVideo().getId() : null;

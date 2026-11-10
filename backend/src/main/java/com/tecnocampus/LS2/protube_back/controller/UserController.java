@@ -1,9 +1,11 @@
 package com.tecnocampus.LS2.protube_back.controller;
 
+import com.tecnocampus.LS2.protube_back.dto.PageDto;
 import com.tecnocampus.LS2.protube_back.dto.UpdateProfileRequestDto;
 import com.tecnocampus.LS2.protube_back.dto.UserAnalyticsDto;
 import com.tecnocampus.LS2.protube_back.dto.UserDto;
 import com.tecnocampus.LS2.protube_back.dto.UserProfileDto;
+import com.tecnocampus.LS2.protube_back.dto.VideoSummaryDto;
 import com.tecnocampus.LS2.protube_back.services.AnalyticsService;
 import com.tecnocampus.LS2.protube_back.services.UserService;
 import jakarta.validation.Valid;
@@ -54,18 +56,24 @@ public class UserController {
 
     @PostMapping("/me/avatar")
     public ResponseEntity<UserDto> uploadAvatar(
-            @RequestParam(value = "avatar", required = false) MultipartFile avatarPart,
-            @RequestParam(value = "file", required = false) MultipartFile filePart,
+            @RequestParam(value = "avatar", required = false) MultipartFile avatar,
             Principal principal) {
         if (principal == null) {
             throw new BadCredentialsException("Authentication required");
         }
-        MultipartFile avatar = avatarPart != null ? avatarPart : filePart;
         return ResponseEntity.ok(userService.updateAvatar(principal.getName(), avatar));
     }
 
     @GetMapping("/{username}")
     public ResponseEntity<UserProfileDto> getPublicProfile(@PathVariable("username") String username) {
         return ResponseEntity.ok(userService.getPublicProfile(username));
+    }
+
+    @GetMapping("/{username}/videos")
+    public ResponseEntity<PageDto<VideoSummaryDto>> getPublicVideos(
+            @PathVariable("username") String username,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "12") int size) {
+        return ResponseEntity.ok(userService.getPublicVideos(username, page, size));
     }
 }

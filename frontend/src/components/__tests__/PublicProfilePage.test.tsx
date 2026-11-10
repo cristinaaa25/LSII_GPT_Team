@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import PublicProfilePage from '../PublicProfilePage';
 import { usePublicProfile } from '../../hooks/usePublicProfile';
@@ -6,6 +6,23 @@ import { usePublicProfile } from '../../hooks/usePublicProfile';
 jest.mock('../../hooks/usePublicProfile');
 
 const mockedUsePublicProfile = usePublicProfile as jest.MockedFunction<typeof usePublicProfile>;
+
+type HookResult = ReturnType<typeof usePublicProfile>;
+
+const hookResult = (overrides: Partial<HookResult>): HookResult => ({
+  profile: null,
+  loading: false,
+  error: null,
+  notFound: false,
+  refresh: jest.fn(),
+  videos: [],
+  totalVideos: 0,
+  hasMore: false,
+  loadingMore: false,
+  loadMoreError: null,
+  loadMore: jest.fn(),
+  ...overrides,
+});
 
 describe('PublicProfilePage', () => {
   beforeEach(() => {
@@ -24,13 +41,15 @@ describe('PublicProfilePage', () => {
   };
 
   it('renders loading spinner while profile is being loaded', () => {
-    mockedUsePublicProfile.mockReturnValue({
-      profile: null,
-      loading: true,
-      error: null,
-      notFound: false,
-      refresh: jest.fn(),
-    });
+    mockedUsePublicProfile.mockReturnValue(
+      hookResult({
+        profile: null,
+        loading: true,
+        error: null,
+        notFound: false,
+        refresh: jest.fn(),
+      })
+    );
 
     renderPublicProfile();
 
@@ -38,13 +57,15 @@ describe('PublicProfilePage', () => {
   });
 
   it('renders Not Found alert when user does not exist', () => {
-    mockedUsePublicProfile.mockReturnValue({
-      profile: null,
-      loading: false,
-      error: null,
-      notFound: true,
-      refresh: jest.fn(),
-    });
+    mockedUsePublicProfile.mockReturnValue(
+      hookResult({
+        profile: null,
+        loading: false,
+        error: null,
+        notFound: true,
+        refresh: jest.fn(),
+      })
+    );
 
     renderPublicProfile('nonexistent');
 
@@ -54,13 +75,15 @@ describe('PublicProfilePage', () => {
   });
 
   it('renders error alert when loading fails', () => {
-    mockedUsePublicProfile.mockReturnValue({
-      profile: null,
-      loading: false,
-      error: 'Network connection lost',
-      notFound: false,
-      refresh: jest.fn(),
-    });
+    mockedUsePublicProfile.mockReturnValue(
+      hookResult({
+        profile: null,
+        loading: false,
+        error: 'Network connection lost',
+        notFound: false,
+        refresh: jest.fn(),
+      })
+    );
 
     renderPublicProfile();
 
@@ -95,13 +118,17 @@ describe('PublicProfilePage', () => {
       ],
     };
 
-    mockedUsePublicProfile.mockReturnValue({
-      profile: mockProfile,
-      loading: false,
-      error: null,
-      notFound: false,
-      refresh: jest.fn(),
-    });
+    mockedUsePublicProfile.mockReturnValue(
+      hookResult({
+        profile: mockProfile,
+        loading: false,
+        error: null,
+        notFound: false,
+        refresh: jest.fn(),
+        videos: mockProfile.videos,
+        totalVideos: 2,
+      })
+    );
 
     renderPublicProfile();
 
@@ -133,13 +160,15 @@ describe('PublicProfilePage', () => {
       videos: [],
     };
 
-    mockedUsePublicProfile.mockReturnValue({
-      profile: mockProfile,
-      loading: false,
-      error: null,
-      notFound: false,
-      refresh: jest.fn(),
-    });
+    mockedUsePublicProfile.mockReturnValue(
+      hookResult({
+        profile: mockProfile,
+        loading: false,
+        error: null,
+        notFound: false,
+        refresh: jest.fn(),
+      })
+    );
 
     renderPublicProfile('bob');
 
@@ -148,5 +177,68 @@ describe('PublicProfilePage', () => {
     expect(screen.getByText('B')).toBeInTheDocument();
     expect(screen.getByText('No description provided.')).toBeInTheDocument();
     expect(screen.getByText('No videos uploaded yet.')).toBeInTheDocument();
+  });
+
+  const video = (id: number, title: string) => ({
+    id,
+    title,
+    author: 'alice',
+    duration: 60,
+    views: 1,
+    thumbnail: `t${id}.webp`,
+  });
+
+  const aliceProfile = { id: 10, username: 'alice', displayName: null, avatarUrl: null, description: null, videos: [] };
+
+  it('shows the total number of videos and a Load more button that loads the next page', () => {
+    const loadMore = jest.fn();
+    mockedUsePublicProfile.mockReturnValue(
+      hookResult({
+        profile: aliceProfile,
+        videos: [video(1, 'First'), video(2, 'Second')],
+        totalVideos: 30,
+        hasMore: true,
+        loadMore,
+      })
+    );
+
+    renderPublicProfile();
+
+    expect(screen.getByRole('heading', { level: 2, name: 'Videos (30)' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Load more' }));
+    expect(loadMore).toHaveBeenCalledTimes(1);
+  });
+
+  it('disables the button while the next page is loading', () => {
+    mockedUsePublicProfile.mockReturnValue(
+      hookResult({
+        profile: aliceProfile,
+        videos: [video(1, 'First')],
+        totalVideos: 13,
+        hasMore: true,
+        loadingMore: true,
+      })
+    );
+
+    renderPublicProfile();
+
+    expect(screen.getByRole('button', { name: 'Loading...' })).toBeDisabled();
+  });
+
+  it('hides Load more on the last page and shows load errors', () => {
+    mockedUsePublicProfile.mockReturnValue(
+      hookResult({
+        profile: aliceProfile,
+        videos: [video(1, 'First')],
+        totalVideos: 1,
+        hasMore: false,
+        loadMoreError: 'Network error',
+      })
+    );
+
+    renderPublicProfile();
+
+    expect(screen.queryByRole('button', { name: 'Load more' })).not.toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent('Could not load more videos: Network error');
   });
 });

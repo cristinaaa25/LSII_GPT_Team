@@ -49,7 +49,7 @@ class AuthControllerTest {
         RegisterRequestDto request = new RegisterRequestDto(
                 "alice", "alice@example.com", "password123", "http://avatar", "bio"
         );
-        UserDto userDto = new UserDto(1L, "alice", "alice@example.com", "http://avatar", "bio");
+        UserDto userDto = new UserDto(1L, "alice", "alice@example.com", null, "http://avatar", "bio");
         AuthResponseDto responseDto = new AuthResponseDto("jwt-token-xyz", userDto);
 
         when(authService.register(any(RegisterRequestDto.class))).thenReturn(responseDto);
@@ -125,7 +125,7 @@ class AuthControllerTest {
     @Test
     void loginReturns200WhenValidCredentials() throws Exception {
         LoginRequestDto request = new LoginRequestDto("alice@example.com", "password123");
-        UserDto userDto = new UserDto(1L, "alice", "alice@example.com", null, null);
+        UserDto userDto = new UserDto(1L, "alice", "alice@example.com", null, null, null);
         AuthResponseDto responseDto = new AuthResponseDto("jwt-token-xyz", userDto);
 
         when(authService.login(any(LoginRequestDto.class))).thenReturn(responseDto);
@@ -172,7 +172,7 @@ class AuthControllerTest {
     @Test
     @WithMockUser(username = "alice")
     void meReturns200WhenAuthenticated() throws Exception {
-        UserDto userDto = new UserDto(1L, "alice", "alice@example.com", "avatar", "desc");
+        UserDto userDto = new UserDto(1L, "alice", "alice@example.com", null, "avatar", "desc");
         when(authService.getCurrentUser("alice")).thenReturn(userDto);
 
         mockMvc.perform(get("/api/auth/me"))

@@ -14,6 +14,7 @@ import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabas
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 import org.springframework.context.annotation.Import;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.ActiveProfiles;
 
 import java.io.IOException;
@@ -107,7 +108,7 @@ class VideoStoreImporterTest {
         assertThat(video.getTags()).containsExactly("cats", "funny");
         assertThat(video.getUploader().getUsername()).isEqualTo("Cat Channel");
 
-        List<Comment> comments = commentRepository.findByVideoIdAndParentIsNullOrderByCreatedAtDesc(video.getId());
+        List<Comment> comments = commentRepository.findByVideoIdAndParentIsNullOrderByCreatedAtDesc(video.getId(), PageRequest.of(0, 10)).getContent();
         assertThat(comments).extracting(Comment::getText).containsExactly("Me again", "Meow", "So cute");
         assertThat(comments).extracting(c -> c.getAuthor().getUsername()).containsExactly("alice", "bob", "alice");
         assertThat(comments.get(2).getCreatedAt()).isEqualTo(Instant.ofEpochSecond(1700000100));

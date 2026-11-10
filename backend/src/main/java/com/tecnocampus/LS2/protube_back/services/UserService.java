@@ -1,7 +1,7 @@
 package com.tecnocampus.LS2.protube_back.services;
 
 import com.tecnocampus.LS2.protube_back.domain.User;
-import com.tecnocampus.LS2.protube_back.domain.Video;
+import com.tecnocampus.LS2.protube_back.dto.PageDto;
 import com.tecnocampus.LS2.protube_back.dto.UpdateProfileRequestDto;
 import com.tecnocampus.LS2.protube_back.dto.UserDto;
 import com.tecnocampus.LS2.protube_back.dto.UserProfileDto;
@@ -14,6 +14,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,6 +34,7 @@ public class UserService {
 
     private static final Logger LOG = LoggerFactory.getLogger(UserService.class);
 
+    public static final int PROFILE_VIDEOS_SIZE = 12;
     public static final long MAX_AVATAR_SIZE = 2 * 1024 * 1024; // 2MB
     private static final Set<String> ALLOWED_CONTENT_TYPES = Set.of(
             "image/png",
@@ -68,10 +70,11 @@ public class UserService {
         User user = userRepository.findByUsername(username.trim())
                 .orElseThrow(() -> new NotFoundException("User not found: " + username.trim()));
 
-        List<Video> videos = videoRepository.findByUploaderIdOrderByCreatedAtDesc(user.getId());
-        List<VideoSummaryDto> videoDtos = videos.stream()
+        // Only the newest videos; the rest are loaded page by page from GET /api/users/{username}/videos
+        List<VideoSummaryDto> videoDtos = videoRepository
+                .findByUploaderId(user.getId(), PageRequest.of(0, PROFILE_VIDEOS_SIZE, VideoService.NEWEST_FIRST))
                 .map(VideoService::toSummary)
-                .toList();
+                .getContent();
 
         return new UserProfileDto(
                 user.getId(),
@@ -81,6 +84,21 @@ public class UserService {
                 user.getDescription(),
                 videoDtos
         );
+    }
+
+    /** One page of the videos uploaded by {@code username}, newest first (same shape as {@code /api/videos}). */
+    @Transactional(readOnly = true)
+    public PageDto<VideoSummaryDto> getPublicVideos(String username, int page, int size) {
+        if (username == null || username.isBlank()) {
+            throw new InvalidRequestException("Username must not be empty");
+        }
+        VideoService.validatePage(page, size);
+        User user = userRepository.findByUsername(username.trim())
+                .orElseThrow(() -> new NotFoundException("User not found: " + username.trim()));
+
+        return PageDto.from(videoRepository
+                .findByUploaderId(user.getId(), PageRequest.of(page, size, VideoService.NEWEST_FIRST))
+                .map(VideoService::toSummary));
     }
 
     @Transactional(readOnly = true)
@@ -105,19 +123,14 @@ public class UserService {
         User user = userRepository.findByUsername(username.trim())
                 .orElseThrow(() -> new NotFoundException("User not found: " + username.trim()));
 
+        // Lengths are validated once, by bean validation on UpdateProfileRequestDto (@Valid in UserController)
         if (request.displayName() != null) {
             String trimmed = request.displayName().trim();
-            if (trimmed.length() > 100) {
-                throw new InvalidRequestException("Display name cannot exceed 100 characters");
-            }
             user.setDisplayName(trimmed.isEmpty() ? null : trimmed);
         }
 
         if (request.description() != null) {
             String trimmed = request.description().trim();
-            if (trimmed.length() > 2000) {
-                throw new InvalidRequestException("Description cannot exceed 2000 characters");
-            }
             user.setDescription(trimmed.isEmpty() ? null : trimmed);
         }
 
@@ -137,6 +150,9 @@ public class UserService {
         }
 
         String extension = resolveExtension(file);
+        // Content type and name come from the client: the file's own bytes must match the format too
+        ImageSignature.requireMatches(file, ".png".equals(extension) ? "image/png"
+                : ".webp".equals(extension) ? "image/webp" : "image/jpeg");
 
         User user = userRepository.findByUsername(username.trim())
                 .orElseThrow(() -> new NotFoundException("User not found: " + username.trim()));

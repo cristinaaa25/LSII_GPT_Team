@@ -2,7 +2,6 @@ package com.tecnocampus.LS2.protube_back.services;
 
 import com.tecnocampus.LS2.protube_back.domain.User;
 import com.tecnocampus.LS2.protube_back.domain.Video;
-import com.tecnocampus.LS2.protube_back.domain.VideoView;
 import com.tecnocampus.LS2.protube_back.dto.DailyViewsDto;
 import com.tecnocampus.LS2.protube_back.dto.UserAnalyticsDto;
 import com.tecnocampus.LS2.protube_back.dto.VideoAnalyticsDto;
@@ -78,23 +77,15 @@ class AnalyticsServiceTest {
 
         when(videoRepository.findByUploaderIdOrderByCreatedAtDesc(1L)).thenReturn(List.of(v1, v2));
 
-        when(commentRepository.countByVideoId(10L)).thenReturn(2L);
-        when(commentRepository.countByVideoId(20L)).thenReturn(1L);
+        when(commentRepository.countByUploaderGroupedByVideo(1L))
+                .thenReturn(List.of(commentCount(10L, 2L), commentCount(20L, 1L)));
 
-        User bob = new User("bob", "bob@example.com", "pass");
-        bob.setId(2L);
-
-        VideoView viewTodayAuth = new VideoView(v1, bob);
-        viewTodayAuth.setViewedAt(Instant.parse("2026-11-04T08:00:00Z"));
-
-        VideoView viewTodayAnon = new VideoView(v1);
-        viewTodayAnon.setViewedAt(Instant.parse("2026-11-04T09:00:00Z"));
-
-        VideoView viewFiveDaysAgoAuth = new VideoView(v2, bob);
-        viewFiveDaysAgoAuth.setViewedAt(Instant.parse("2026-10-30T10:00:00Z"));
-
-        when(videoViewRepository.findByUploaderIdAndViewedAtAfter(eq(1L), any(Instant.class)))
-                .thenReturn(List.of(viewFiveDaysAgoAuth, viewTodayAuth, viewTodayAnon));
+        // Rows as the grouped query returns them: one per UTC day (a day outside the window is ignored)
+        when(videoViewRepository.countDailyViewsByUploader(1L, Instant.parse("2026-10-06T00:00:00Z")))
+                .thenReturn(List.of(
+                        dailyCount("2026-10-30", 1, 1),
+                        dailyCount("2026-11-04", 2, 1),
+                        dailyCount("2026-09-01", 7, 7)));
 
         UserAnalyticsDto result = analyticsService.getUserAnalytics("alice");
 
@@ -191,5 +182,39 @@ class AnalyticsServiceTest {
                 commentRepository
         );
         assertThat(defaultService).isNotNull();
+    }
+
+    private static CommentRepository.VideoCommentCount commentCount(Long videoId, long count) {
+        return new CommentRepository.VideoCommentCount() {
+            @Override
+            public Long getVideoId() {
+                return videoId;
+            }
+
+            @Override
+            public long getCommentCount() {
+                return count;
+            }
+        };
+    }
+
+    private static VideoViewRepository.DailyViewCount dailyCount(String utcDay, long total, long authenticated) {
+        return new VideoViewRepository.DailyViewCount() {
+            @Override
+            public Number getEpochDay() {
+                // Databases return FLOOR(...) as a decimal type, not as a long
+                return java.math.BigDecimal.valueOf(LocalDate.parse(utcDay).toEpochDay());
+            }
+
+            @Override
+            public Number getTotal() {
+                return total;
+            }
+
+            @Override
+            public Number getAuthenticated() {
+                return authenticated;
+            }
+        };
     }
 }

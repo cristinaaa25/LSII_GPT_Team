@@ -2,7 +2,6 @@ package com.tecnocampus.LS2.protube_back.services;
 
 import com.tecnocampus.LS2.protube_back.domain.User;
 import com.tecnocampus.LS2.protube_back.domain.Video;
-import com.tecnocampus.LS2.protube_back.domain.VideoView;
 import com.tecnocampus.LS2.protube_back.dto.AnalyticsTotalsDto;
 import com.tecnocampus.LS2.protube_back.dto.DailyViewsDto;
 import com.tecnocampus.LS2.protube_back.dto.UserAnalyticsDto;
@@ -22,6 +21,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -76,8 +76,13 @@ public class AnalyticsService {
             );
         }
 
+        // One grouped query for the comment counts of all the user's videos (not one count per video)
+        Map<Long, Long> commentsByVideo = new HashMap<>();
+        commentRepository.countByUploaderGroupedByVideo(user.getId())
+                .forEach(c -> commentsByVideo.put(c.getVideoId(), c.getCommentCount()));
+
         List<VideoAnalyticsDto> videoList = videos.stream().map(v -> {
-            long comments = commentRepository.countByVideoId(v.getId());
+            long comments = commentsByVideo.getOrDefault(v.getId(), 0L);
             long views = v.getViewCount() != null ? v.getViewCount() : 0L;
             long likes = v.getLikeCount() != null ? v.getLikeCount() : 0L;
             return new VideoAnalyticsDto(
@@ -100,23 +105,22 @@ public class AnalyticsService {
         AnalyticsTotalsDto totals = new AnalyticsTotalsDto(totalVideos, totalViews, totalLikes, totalComments);
 
         Instant since = today.minusDays(29).atStartOfDay(ZoneOffset.UTC).toInstant();
-        List<VideoView> registeredViews = videoViewRepository.findByUploaderIdAndViewedAtAfter(user.getId(), since);
 
         Map<LocalDate, long[]> dailyCounts = new LinkedHashMap<>(30);
         for (int i = 29; i >= 0; i--) {
             dailyCounts.put(today.minusDays(i), new long[3]);
         }
 
-        for (VideoView view : registeredViews) {
-            LocalDate viewDate = view.getViewedAt().atZone(ZoneOffset.UTC).toLocalDate();
-            long[] counts = dailyCounts.get(viewDate);
+        // Views per UTC day come already grouped from the database (no VideoView rows loaded in memory)
+        for (VideoViewRepository.DailyViewCount row
+                : videoViewRepository.countDailyViewsByUploader(user.getId(), since)) {
+            long[] counts = dailyCounts.get(LocalDate.ofEpochDay(row.getEpochDay().longValue()));
             if (counts != null) {
-                counts[0]++; // total views
-                if (view.getViewer() != null) {
-                    counts[1]++; // authenticated views
-                } else {
-                    counts[2]++; // anonymous views
-                }
+                long total = row.getTotal().longValue();
+                long authenticated = row.getAuthenticated() != null ? row.getAuthenticated().longValue() : 0L;
+                counts[0] = total;
+                counts[1] = authenticated;
+                counts[2] = total - authenticated;
             }
         }
 

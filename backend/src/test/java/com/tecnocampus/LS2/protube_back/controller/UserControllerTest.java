@@ -27,6 +27,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -220,19 +222,22 @@ class UserControllerTest {
                 .isInstanceOf(BadCredentialsException.class)
                 .hasMessage("Authentication required");
 
-        assertThatThrownBy(() -> controller.uploadAvatar(null, null, null))
+        assertThatThrownBy(() -> controller.uploadAvatar(null, null))
                 .isInstanceOf(BadCredentialsException.class)
                 .hasMessage("Authentication required");
     }
 
     @Test
-    void uploadAvatarAcceptsFilePartWhenAvatarPartNull() {
-        UserController controller = new UserController(userService, analyticsService);
+    @WithMockUser(username = "alice")
+    void uploadAvatarIgnoresPartNamedFile() throws Exception {
+        // Only the multipart part "avatar" is accepted: a "file" part reaches the service as a missing avatar
         MockMultipartFile file = new MockMultipartFile("file", "test.png", "image/png", new byte[]{1});
-        var expected = new UserDto(1L, "alice", "alice@example.com", "Alice", "/media/avatars/test.png", "Bio");
-        when(userService.updateAvatar("alice", file)).thenReturn(expected);
+        when(userService.updateAvatar(eq("alice"), isNull()))
+                .thenThrow(new InvalidRequestException("Avatar file is required and must not be empty"));
 
-        var res = controller.uploadAvatar(null, file, () -> "alice");
-        assertThat(res.getBody()).isEqualTo(expected);
+        mockMvc.perform(multipart("/api/users/me/avatar").file(file))
+                .andExpect(status().isBadRequest());
+
+        verify(userService).updateAvatar(eq("alice"), isNull());
     }
 }
