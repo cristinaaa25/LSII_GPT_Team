@@ -62,7 +62,7 @@ public class VideoService {
             "image/jpeg", ".jpg",
             "image/webp", ".webp");
 
-    private static final Sort NEWEST_FIRST = Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("id"));
+    static final Sort NEWEST_FIRST = Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("id"));
 
     private final VideoRepository videoRepository;
     private final CommentRepository commentRepository;
@@ -112,7 +112,7 @@ public class VideoService {
         return "%" + escaped + "%";
     }
 
-    private static void validatePage(int page, int size) {
+    static void validatePage(int page, int size) {
         if (page < 0) {
             throw new InvalidRequestException("page must be greater than or equal to 0");
         }
@@ -184,6 +184,7 @@ public class VideoService {
             if (allowedExt == null) {
                 throw new InvalidRequestException("Thumbnail must be a PNG, JPG or WEBP image");
             }
+            ImageSignature.requireMatches(thumbnail, thumbContentType);
             // Taken from the validated type, never from the user's file name
             thumbExt = allowedExt;
         }

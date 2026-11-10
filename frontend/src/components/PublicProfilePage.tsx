@@ -6,7 +6,8 @@ import { resolveAvatarUrl } from '../utils/format';
 
 export const PublicProfilePage: React.FC = () => {
   const { username } = useParams<{ username: string }>();
-  const { profile, loading, error, notFound } = usePublicProfile(username);
+  const { profile, loading, error, notFound, videos, totalVideos, hasMore, loadingMore, loadMoreError, loadMore } =
+    usePublicProfile(username);
 
   if (loading) {
     return (
@@ -85,20 +86,39 @@ export const PublicProfilePage: React.FC = () => {
       {/* Videos Section */}
       <section aria-label="User videos">
         <h2 className="h4 mb-3">
-          Videos <span className="text-secondary fs-6">({profile.videos.length})</span>
+          Videos <span className="text-secondary fs-6">({totalVideos})</span>
         </h2>
 
-        {profile.videos.length === 0 ? (
+        {videos.length === 0 ? (
           <div className="text-center py-5 text-secondary border rounded bg-light" role="status">
             <p className="mb-0">No videos uploaded yet.</p>
           </div>
         ) : (
           <div className="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 g-4">
-            {profile.videos.map((video) => (
+            {videos.map((video) => (
               <div key={video.id} className="col">
                 <VideoCard video={video} />
               </div>
             ))}
+          </div>
+        )}
+
+        {loadMoreError && (
+          <div className="alert alert-danger mt-3 text-center" role="alert">
+            Could not load more videos: {loadMoreError}
+          </div>
+        )}
+
+        {hasMore && (
+          <div className="text-center mt-4">
+            <button
+              type="button"
+              className="btn btn-outline-primary"
+              onClick={() => void loadMore()}
+              disabled={loadingMore}
+            >
+              {loadingMore ? 'Loading...' : 'Load more'}
+            </button>
           </div>
         )}
       </section>

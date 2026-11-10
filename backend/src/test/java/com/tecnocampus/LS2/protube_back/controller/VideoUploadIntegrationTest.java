@@ -6,6 +6,7 @@ import com.tecnocampus.LS2.protube_back.repository.UserRepository;
 import com.tecnocampus.LS2.protube_back.repository.VideoRepository;
 import com.tecnocampus.LS2.protube_back.security.JwtService;
 import com.tecnocampus.LS2.protube_back.services.VideoService;
+import com.tecnocampus.LS2.protube_back.TestImages;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -169,7 +170,7 @@ class VideoUploadIntegrationTest {
                 "file", "clip.mp4", "video/mp4", "mp4 stream".getBytes()
         );
         MockMultipartFile thumb = new MockMultipartFile(
-                "thumbnail", "cover.png", "image/png", "png image bytes".getBytes()
+                "thumbnail", "cover.png", "image/png", TestImages.png()
         );
 
         String responseJson = mockMvc.perform(multipart("/api/videos")
@@ -188,6 +189,25 @@ class VideoUploadIntegrationTest {
         assertThat(thumbUrl).endsWith(".png");
         Path storedThumb = tempDir.resolve(thumbUrl);
         assertThat(Files.exists(storedThumb)).isTrue();
-        assertThat(Files.readAllBytes(storedThumb)).isEqualTo("png image bytes".getBytes());
+        assertThat(Files.readAllBytes(storedThumb)).isEqualTo(TestImages.png());
+    }
+
+    @Test
+    void uploadVideoRejectsFakeThumbnailWith400() throws Exception {
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "clip.mp4", "video/mp4", "mp4 stream".getBytes()
+        );
+        // A text file named .png and sent as image/png
+        MockMultipartFile fakeThumb = new MockMultipartFile(
+                "thumbnail", "cover.png", "image/png", "just some text".getBytes()
+        );
+
+        mockMvc.perform(multipart("/api/videos")
+                        .file(file)
+                        .file(fakeThumb)
+                        .param("title", "Fake Thumbnail")
+                        .param("description", "Should be rejected")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isBadRequest());
     }
 }

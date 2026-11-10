@@ -92,10 +92,10 @@ class CommentServiceTest {
         when(videoRepository.existsById(100L)).thenReturn(true);
         when(commentRepository.findByVideoIdAndParentIsNullOrderByCreatedAtDesc(eq(100L), any(PageRequest.class)))
                 .thenReturn(new PageImpl<>(List.of(rootComment)));
-        when(commentRepository.findByParentIdOrderByCreatedAtAsc(200L))
+        when(commentRepository.findByParentIdInOrderByCreatedAtAsc(List.of(200L)))
                 .thenReturn(List.of(replyComment));
-        when(commentLikeRepository.countByCommentId(200L)).thenReturn(5L);
-        when(commentLikeRepository.countByCommentId(201L)).thenReturn(1L);
+        when(commentLikeRepository.countByCommentIds(List.of(200L, 201L)))
+                .thenReturn(List.of(likeCount(200L, 5L), likeCount(201L, 1L)));
 
         PageDto<CommentDto> result = commentService.getComments(100L, 0, 10);
 
@@ -114,6 +114,63 @@ class CommentServiceTest {
         assertThat(replyDto.parentId()).isEqualTo(200L);
         assertThat(replyDto.likeCount()).isEqualTo(1L);
         assertThat(replyDto.likedByMe()).isFalse();
+
+        // Anonymous: likedByMe is never queried
+        verify(commentLikeRepository, never()).findLikedCommentIds(any(), any());
+    }
+
+    @Test
+    void getComments_usesBatchQueriesNotOneQueryPerComment() {
+        Comment secondRoot = new Comment("Second", video, user);
+        secondRoot.setId(202L);
+        mockAuthentication(user);
+        when(userRepository.findById(10L)).thenReturn(Optional.of(user));
+        when(videoRepository.existsById(100L)).thenReturn(true);
+        when(commentRepository.findByVideoIdAndParentIsNullOrderByCreatedAtDesc(eq(100L), any(PageRequest.class)))
+                .thenReturn(new PageImpl<>(List.of(rootComment, secondRoot)));
+        when(commentRepository.findByParentIdInOrderByCreatedAtAsc(List.of(200L, 202L)))
+                .thenReturn(List.of(replyComment));
+        when(commentLikeRepository.countByCommentIds(List.of(200L, 202L, 201L))).thenReturn(List.of());
+        when(commentLikeRepository.findLikedCommentIds(10L, List.of(200L, 202L, 201L))).thenReturn(List.of(201L));
+
+        PageDto<CommentDto> result = commentService.getComments(100L, 0, 10);
+
+        assertThat(result.content()).extracting(CommentDto::id).containsExactly(200L, 202L);
+        assertThat(result.content().get(0).replies()).extracting(CommentDto::likedByMe).containsExactly(true);
+        assertThat(result.content().get(1).replies()).isEmpty();
+        assertThat(result.content()).allMatch(c -> c.likeCount() == 0L && !c.likedByMe());
+        verify(commentRepository, times(1)).findByParentIdInOrderByCreatedAtAsc(any());
+        verify(commentLikeRepository, times(1)).countByCommentIds(any());
+        verify(commentLikeRepository, times(1)).findLikedCommentIds(any(), any());
+        verify(commentLikeRepository, never()).countByCommentId(any());
+        verify(commentLikeRepository, never()).existsByCommentIdAndUserId(any(), any());
+    }
+
+    @Test
+    void getComments_emptyPage_runsNoBatchQueries() {
+        when(videoRepository.existsById(100L)).thenReturn(true);
+        when(commentRepository.findByVideoIdAndParentIsNullOrderByCreatedAtDesc(eq(100L), any(PageRequest.class)))
+                .thenReturn(new PageImpl<>(List.of()));
+
+        PageDto<CommentDto> result = commentService.getComments(100L, 0, 10);
+
+        assertThat(result.content()).isEmpty();
+        verifyNoInteractions(commentLikeRepository);
+        verify(commentRepository, never()).findByParentIdInOrderByCreatedAtAsc(any());
+    }
+
+    private static CommentLikeRepository.CommentLikeCount likeCount(Long commentId, long count) {
+        return new CommentLikeRepository.CommentLikeCount() {
+            @Override
+            public Long getCommentId() {
+                return commentId;
+            }
+
+            @Override
+            public long getLikeCount() {
+                return count;
+            }
+        };
     }
 
     @Test
@@ -123,13 +180,14 @@ class CommentServiceTest {
         when(videoRepository.existsById(100L)).thenReturn(true);
         when(commentRepository.findByVideoIdAndParentIsNullOrderByCreatedAtDesc(eq(100L), any(PageRequest.class)))
                 .thenReturn(new PageImpl<>(List.of(rootComment)));
-        when(commentRepository.findByParentIdOrderByCreatedAtAsc(200L)).thenReturn(List.of());
-        when(commentLikeRepository.countByCommentId(200L)).thenReturn(3L);
-        when(commentLikeRepository.existsByCommentIdAndUserId(200L, 10L)).thenReturn(true);
+        when(commentRepository.findByParentIdInOrderByCreatedAtAsc(List.of(200L))).thenReturn(List.of());
+        when(commentLikeRepository.countByCommentIds(List.of(200L))).thenReturn(List.of(likeCount(200L, 3L)));
+        when(commentLikeRepository.findLikedCommentIds(10L, List.of(200L))).thenReturn(List.of(200L));
 
         PageDto<CommentDto> result = commentService.getComments(100L, 0, 10);
 
         assertThat(result.content().get(0).likedByMe()).isTrue();
+        assertThat(result.content().get(0).likeCount()).isEqualTo(3L);
     }
 
     @Test

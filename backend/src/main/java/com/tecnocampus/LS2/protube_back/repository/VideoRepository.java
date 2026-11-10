@@ -13,10 +13,12 @@ import java.util.List;
 
 @Repository
 public interface VideoRepository extends JpaRepository<Video, Long> {
-    List<Video> findByUploaderId(Long uploaderId);
-
     @EntityGraph(attributePaths = "uploader")
     List<Video> findByUploaderIdOrderByCreatedAtDesc(Long uploaderId);
+
+    /** One page of the videos uploaded by {@code uploaderId}; order comes from the {@link Pageable}. */
+    @EntityGraph(attributePaths = "uploader")
+    Page<Video> findByUploaderId(Long uploaderId, Pageable pageable);
 
     List<Video> findByTitleContainingIgnoreCase(String query);
     boolean existsByStoreId(Long storeId);
