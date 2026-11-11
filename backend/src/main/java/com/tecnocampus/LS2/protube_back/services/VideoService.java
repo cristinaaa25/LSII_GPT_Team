@@ -2,9 +2,11 @@ package com.tecnocampus.LS2.protube_back.services;
 
 import com.tecnocampus.LS2.protube_back.domain.User;
 import com.tecnocampus.LS2.protube_back.domain.Video;
+import com.tecnocampus.LS2.protube_back.domain.VideoLike;
 import com.tecnocampus.LS2.protube_back.domain.VideoView;
 import com.tecnocampus.LS2.protube_back.dto.PageDto;
 import com.tecnocampus.LS2.protube_back.dto.VideoDetailDto;
+import com.tecnocampus.LS2.protube_back.dto.VideoLikeDto;
 import com.tecnocampus.LS2.protube_back.dto.VideoSummaryDto;
 import com.tecnocampus.LS2.protube_back.dto.VideoUpdateRequestDto;
 import com.tecnocampus.LS2.protube_back.exception.ForbiddenException;
@@ -12,6 +14,7 @@ import com.tecnocampus.LS2.protube_back.exception.InvalidRequestException;
 import com.tecnocampus.LS2.protube_back.exception.NotFoundException;
 import com.tecnocampus.LS2.protube_back.repository.CommentRepository;
 import com.tecnocampus.LS2.protube_back.repository.UserRepository;
+import com.tecnocampus.LS2.protube_back.repository.VideoLikeRepository;
 import com.tecnocampus.LS2.protube_back.repository.VideoRepository;
 import com.tecnocampus.LS2.protube_back.repository.VideoViewRepository;
 import com.tecnocampus.LS2.protube_back.security.UserPrincipal;
@@ -28,6 +31,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.multipart.MultipartFile;
+
+import java.util.Optional;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -67,6 +72,7 @@ public class VideoService {
     private final VideoRepository videoRepository;
     private final CommentRepository commentRepository;
     private final VideoViewRepository videoViewRepository;
+    private final VideoLikeRepository videoLikeRepository;
     private final UserRepository userRepository;
     private final String storeDir;
 
@@ -75,13 +81,24 @@ public class VideoService {
             VideoRepository videoRepository,
             CommentRepository commentRepository,
             VideoViewRepository videoViewRepository,
+            VideoLikeRepository videoLikeRepository,
             UserRepository userRepository,
             @Value("${pro_tube.store.dir:target/test-store/}") String storeDir) {
         this.videoRepository = videoRepository;
         this.commentRepository = commentRepository;
         this.videoViewRepository = videoViewRepository;
+        this.videoLikeRepository = videoLikeRepository;
         this.userRepository = userRepository;
         this.storeDir = storeDir != null ? storeDir : "target/test-store/";
+    }
+
+    public VideoService(
+            VideoRepository videoRepository,
+            CommentRepository commentRepository,
+            VideoViewRepository videoViewRepository,
+            UserRepository userRepository,
+            String storeDir) {
+        this(videoRepository, commentRepository, videoViewRepository, null, userRepository, storeDir);
     }
 
     @Transactional(readOnly = true)
@@ -135,7 +152,11 @@ public class VideoService {
         Video video = videoRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Video not found with id " + id));
         long commentCount = commentRepository.countByVideoId(id);
-        return toDetail(video, commentCount);
+        User currentUser = findCurrentAuthenticatedUser();
+        boolean likedByMe = currentUser != null
+                && videoLikeRepository != null
+                && videoLikeRepository.existsByVideoIdAndUserId(id, currentUser.getId());
+        return toDetail(video, commentCount, likedByMe);
     }
 
     @Transactional
@@ -463,7 +484,11 @@ public class VideoService {
         video.getCategories().addAll(normalizeLabels(request.categories()));
 
         Video saved = videoRepository.save(video);
-        return toDetail(saved, commentRepository.countByVideoId(id));
+        User currentUser = findCurrentAuthenticatedUser();
+        boolean likedByMe = currentUser != null
+                && videoLikeRepository != null
+                && videoLikeRepository.existsByVideoIdAndUserId(id, currentUser.getId());
+        return toDetail(saved, commentRepository.countByVideoId(id), likedByMe);
     }
 
     /** Trims each label and drops case-insensitive duplicates, keeping the first spelling and the order. */
@@ -474,6 +499,73 @@ public class VideoService {
             unique.putIfAbsent(trimmed.toLowerCase(Locale.ROOT), trimmed);
         }
         return new ArrayList<>(unique.values());
+    }
+
+    @Transactional
+    public VideoLikeDto likeVideo(Long videoId) {
+        if (videoId == null) {
+            throw new InvalidRequestException("Video id must not be null");
+        }
+        Video video = videoRepository.findById(videoId)
+                .orElseThrow(() -> new NotFoundException("Video not found with id " + videoId));
+
+        User currentUser = requireCurrentAuthenticatedUser();
+        Optional<VideoLike> existing = videoLikeRepository.findByVideoIdAndUserId(video.getId(), currentUser.getId());
+        if (existing.isEmpty()) {
+            videoLikeRepository.saveAndFlush(new VideoLike(video, currentUser));
+            long currentCount = video.getLikeCount() != null ? video.getLikeCount() : 0L;
+            video.setLikeCount(Math.max(0L, currentCount + 1));
+            videoRepository.save(video);
+        }
+
+        long likeCount = video.getLikeCount() != null ? Math.max(0L, video.getLikeCount()) : 0L;
+        return new VideoLikeDto(video.getId(), likeCount, true);
+    }
+
+    @Transactional
+    public VideoLikeDto unlikeVideo(Long videoId) {
+        if (videoId == null) {
+            throw new InvalidRequestException("Video id must not be null");
+        }
+        Video video = videoRepository.findById(videoId)
+                .orElseThrow(() -> new NotFoundException("Video not found with id " + videoId));
+
+        User currentUser = requireCurrentAuthenticatedUser();
+        Optional<VideoLike> existing = videoLikeRepository.findByVideoIdAndUserId(video.getId(), currentUser.getId());
+        if (existing.isPresent()) {
+            videoLikeRepository.delete(existing.get());
+            videoLikeRepository.flush();
+            long currentCount = video.getLikeCount() != null ? video.getLikeCount() : 0L;
+            video.setLikeCount(Math.max(0L, currentCount - 1));
+            videoRepository.save(video);
+        }
+
+        long likeCount = video.getLikeCount() != null ? Math.max(0L, video.getLikeCount()) : 0L;
+        return new VideoLikeDto(video.getId(), likeCount, false);
+    }
+
+    @Transactional(readOnly = true)
+    public VideoLikeDto getLikeStatus(Long videoId) {
+        if (videoId == null) {
+            throw new InvalidRequestException("Video id must not be null");
+        }
+        Video video = videoRepository.findById(videoId)
+                .orElseThrow(() -> new NotFoundException("Video not found with id " + videoId));
+
+        User currentUser = findCurrentAuthenticatedUser();
+        boolean liked = currentUser != null
+                && videoLikeRepository != null
+                && videoLikeRepository.existsByVideoIdAndUserId(videoId, currentUser.getId());
+        long likeCount = video.getLikeCount() != null ? Math.max(0L, video.getLikeCount()) : 0L;
+        return new VideoLikeDto(video.getId(), likeCount, liked);
+    }
+
+    User requireCurrentAuthenticatedUser() {
+        User user = findCurrentAuthenticatedUser();
+        if (user == null) {
+            throw new BadCredentialsException("Authentication required");
+        }
+        return user;
     }
 
     @Transactional
@@ -513,6 +605,10 @@ public class VideoService {
     }
 
     static VideoDetailDto toDetail(Video video, long commentCount) {
+        return toDetail(video, commentCount, false);
+    }
+
+    static VideoDetailDto toDetail(Video video, long commentCount, boolean likedByMe) {
         return new VideoDetailDto(
                 video.getId(),
                 video.getTitle(),
@@ -525,7 +621,8 @@ public class VideoService {
                 video.getLikeCount(),
                 commentCount,
                 video.getVideoUrl(),
-                video.getThumbnailUrl());
+                video.getThumbnailUrl(),
+                likedByMe);
     }
 }
 

@@ -1,9 +1,10 @@
-import React, { useContext, useState } from 'react';
+import React, { useContext, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import CommentSection from './CommentSection';
 import VideoEditForm from './VideoEditForm';
 import { AuthContext } from '../context/AuthContext';
 import { useVideoDetail } from '../hooks/useVideoDetail';
+import { videoService } from '../services/videoService';
 import { getEnv } from '../utils/Env';
 import { formatDate, formatViews } from '../utils/format';
 
@@ -22,6 +23,43 @@ const VideoDetailPage: React.FC = () => {
   const currentUser = useContext(AuthContext)?.user ?? null;
   const [editing, setEditing] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [userLiked, setUserLiked] = useState<boolean | null>(null);
+  const [likeOffset, setLikeOffset] = useState<number>(0);
+  const [likeError, setLikeError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setUserLiked(null);
+    setLikeOffset(0);
+    setLikeError(null);
+  }, [id]);
+
+  const liked = userLiked !== null ? userLiked : Boolean(video?.likedByMe);
+  const likeCount = Math.max(0, (video?.likes ?? 0) + likeOffset);
+
+  const handleToggleLike = async () => {
+    if (!video || video.id === undefined) return;
+    const prevLiked = liked;
+    const prevOffset = likeOffset;
+
+    const newLiked = !prevLiked;
+    const newOffset = newLiked ? prevOffset + 1 : prevOffset - 1;
+
+    setUserLiked(newLiked);
+    setLikeOffset(newOffset);
+    setLikeError(null);
+
+    try {
+      if (newLiked) {
+        await videoService.likeVideo(video.id);
+      } else {
+        await videoService.unlikeVideo(video.id);
+      }
+    } catch (err: unknown) {
+      setUserLiked(prevLiked);
+      setLikeOffset(prevOffset);
+      setLikeError(err instanceof Error ? err.message : 'Failed to update like');
+    }
+  };
   const videoSrc = resolveMediaUrl(video?.videoUrl, `${id}.mp4`);
   // Uploads without ffmpeg have no thumbnail: no poster rather than guessing a file that does not exist
   const posterSrc = video?.thumbnailUrl ? resolveMediaUrl(video.thumbnailUrl, '') : undefined;
@@ -109,8 +147,31 @@ const VideoDetailPage: React.FC = () => {
             <span>{formatViews(video.views)}</span>
             {video.uploadDate && <span>Uploaded on {formatDate(video.uploadDate)}</span>}
           </div>
-          <div>
-            <span className="badge bg-secondary">{video.likes} likes</span>
+          <div className="d-flex flex-column align-items-end">
+            {currentUser ? (
+              <button
+                type="button"
+                className={`btn btn-sm ${liked ? 'btn-primary' : 'btn-outline-secondary'}`}
+                aria-pressed={liked}
+                onClick={handleToggleLike}
+                aria-label={liked ? 'Unlike video' : 'Like video'}
+              >
+                👍 <span className="badge bg-secondary ms-1">{likeCount} likes</span>
+              </button>
+            ) : (
+              <Link
+                to="/login"
+                className="btn btn-outline-secondary btn-sm text-decoration-none"
+                aria-label="Log in to like"
+              >
+                👍 <span className="badge bg-secondary ms-1">{likeCount} likes</span>
+              </Link>
+            )}
+            {likeError && (
+              <div className="alert alert-danger py-1 px-2 small mt-1 mb-0" role="alert">
+                {likeError}
+              </div>
+            )}
           </div>
         </div>
       </header>

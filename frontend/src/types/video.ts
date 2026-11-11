@@ -22,6 +22,13 @@ export interface VideoDetail {
   commentCount: number;
   videoUrl?: string;
   thumbnailUrl?: string;
+  likedByMe?: boolean;
+}
+
+export interface VideoLikeResponse {
+  videoId: number;
+  likeCount: number;
+  likedByMe: boolean;
 }
 
 /** Body of PUT /api/videos/:id (backend VideoUpdateRequestDto). */

@@ -2,9 +2,11 @@ package com.tecnocampus.LS2.protube_back.services;
 
 import com.tecnocampus.LS2.protube_back.domain.User;
 import com.tecnocampus.LS2.protube_back.domain.Video;
+import com.tecnocampus.LS2.protube_back.domain.VideoLike;
 import com.tecnocampus.LS2.protube_back.domain.VideoView;
 import com.tecnocampus.LS2.protube_back.dto.PageDto;
 import com.tecnocampus.LS2.protube_back.dto.VideoDetailDto;
+import com.tecnocampus.LS2.protube_back.dto.VideoLikeDto;
 import com.tecnocampus.LS2.protube_back.dto.VideoSummaryDto;
 import com.tecnocampus.LS2.protube_back.dto.VideoUpdateRequestDto;
 import com.tecnocampus.LS2.protube_back.exception.ForbiddenException;
@@ -12,6 +14,7 @@ import com.tecnocampus.LS2.protube_back.exception.InvalidRequestException;
 import com.tecnocampus.LS2.protube_back.exception.NotFoundException;
 import com.tecnocampus.LS2.protube_back.repository.CommentRepository;
 import com.tecnocampus.LS2.protube_back.repository.UserRepository;
+import com.tecnocampus.LS2.protube_back.repository.VideoLikeRepository;
 import com.tecnocampus.LS2.protube_back.repository.VideoRepository;
 import com.tecnocampus.LS2.protube_back.repository.VideoViewRepository;
 import com.tecnocampus.LS2.protube_back.security.UserPrincipal;
@@ -62,6 +65,9 @@ class VideoServiceTest {
 
     @Mock
     VideoViewRepository videoViewRepository;
+
+    @Mock
+    VideoLikeRepository videoLikeRepository;
 
     @Mock
     UserRepository userRepository;
@@ -209,6 +215,53 @@ class VideoServiceTest {
         assertThat(result.commentCount()).isEqualTo(5L);
         assertThat(result.videoUrl()).isEqualTo("42.mp4");
         assertThat(result.thumbnailUrl()).isEqualTo("42.webp");
+        assertThat(result.likedByMe()).isFalse();
+    }
+
+    @Test
+    void getVideoReturnsLikedByMeTrueWhenUserLiked() {
+        User author = new User("alice", "alice@example.com", "password");
+        Video video = new Video("Funny cats", "Cute pets", "42.mp4", "42.webp", 12.0, 1920, 1080, author);
+        video.setId(42L);
+
+        User liker = new User("liker", "liker@example.com", "password");
+        liker.setId(99L);
+
+        UserPrincipal principal = UserPrincipal.fromUser(liker);
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities()));
+
+        when(userRepository.findById(99L)).thenReturn(Optional.of(liker));
+        when(videoRepository.findById(42L)).thenReturn(Optional.of(video));
+        when(commentRepository.countByVideoId(42L)).thenReturn(0L);
+        when(videoLikeRepository.existsByVideoIdAndUserId(42L, 99L)).thenReturn(true);
+
+        VideoDetailDto result = videoService.getVideo(42L);
+
+        assertThat(result.likedByMe()).isTrue();
+    }
+
+    @Test
+    void getVideoReturnsLikedByMeFalseWhenUserNotLiked() {
+        User author = new User("alice", "alice@example.com", "password");
+        Video video = new Video("Funny cats", "Cute pets", "42.mp4", "42.webp", 12.0, 1920, 1080, author);
+        video.setId(42L);
+
+        User visitor = new User("visitor", "visitor@example.com", "password");
+        visitor.setId(100L);
+
+        UserPrincipal principal = UserPrincipal.fromUser(visitor);
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities()));
+
+        when(userRepository.findById(100L)).thenReturn(Optional.of(visitor));
+        when(videoRepository.findById(42L)).thenReturn(Optional.of(video));
+        when(commentRepository.countByVideoId(42L)).thenReturn(0L);
+        when(videoLikeRepository.existsByVideoIdAndUserId(42L, 100L)).thenReturn(false);
+
+        VideoDetailDto result = videoService.getVideo(42L);
+
+        assertThat(result.likedByMe()).isFalse();
     }
 
     @Test
@@ -629,5 +682,223 @@ class VideoServiceTest {
     void normalizeLabelsTrimsAndDropsCaseInsensitiveDuplicates() {
         assertThat(VideoService.normalizeLabels(List.of(" Cats", "cats ", "Dogs", "CATS")))
                 .containsExactly("Cats", "Dogs");
+    }
+
+    @Test
+    void likeVideoRejectsNullId() {
+        assertThatThrownBy(() -> videoService.likeVideo(null))
+                .isInstanceOf(InvalidRequestException.class);
+    }
+
+    @Test
+    void likeVideoThrowsNotFoundWhenVideoDoesNotExist() {
+        when(videoRepository.findById(999L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> videoService.likeVideo(999L))
+                .isInstanceOf(NotFoundException.class)
+                .hasMessage("Video not found with id 999");
+    }
+
+    @Test
+    void likeVideoThrowsBadCredentialsWhenAnonymous() {
+        Video video = new Video();
+        video.setId(42L);
+        when(videoRepository.findById(42L)).thenReturn(Optional.of(video));
+
+        assertThatThrownBy(() -> videoService.likeVideo(42L))
+                .isInstanceOf(BadCredentialsException.class)
+                .hasMessage("Authentication required");
+    }
+
+    @Test
+    void likeVideoIncrementsCountAndSavesLike() {
+        User author = new User("alice", "alice@example.com", "password");
+        Video video = new Video("Cats", "desc", "url", "thumb", 10.0, 100, 100, author);
+        video.setId(42L);
+        video.setLikeCount(5L);
+
+        User liker = new User("bob", "bob@example.com", "password");
+        liker.setId(2L);
+
+        UserPrincipal principal = UserPrincipal.fromUser(liker);
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities()));
+
+        when(userRepository.findById(2L)).thenReturn(Optional.of(liker));
+        when(videoRepository.findById(42L)).thenReturn(Optional.of(video));
+        when(videoLikeRepository.findByVideoIdAndUserId(42L, 2L)).thenReturn(Optional.empty());
+
+        VideoLikeDto result = videoService.likeVideo(42L);
+
+        assertThat(result.videoId()).isEqualTo(42L);
+        assertThat(result.likeCount()).isEqualTo(6L);
+        assertThat(result.likedByMe()).isTrue();
+        assertThat(video.getLikeCount()).isEqualTo(6L);
+
+        verify(videoLikeRepository).saveAndFlush(any(VideoLike.class));
+        verify(videoRepository).save(video);
+    }
+
+    @Test
+    void likeVideoIsIdempotentWhenAlreadyLiked() {
+        User author = new User("alice", "alice@example.com", "password");
+        Video video = new Video("Cats", "desc", "url", "thumb", 10.0, 100, 100, author);
+        video.setId(42L);
+        video.setLikeCount(5L);
+
+        User liker = new User("bob", "bob@example.com", "password");
+        liker.setId(2L);
+
+        UserPrincipal principal = UserPrincipal.fromUser(liker);
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities()));
+
+        when(userRepository.findById(2L)).thenReturn(Optional.of(liker));
+        when(videoRepository.findById(42L)).thenReturn(Optional.of(video));
+        when(videoLikeRepository.findByVideoIdAndUserId(42L, 2L)).thenReturn(Optional.of(new VideoLike(video, liker)));
+
+        VideoLikeDto result = videoService.likeVideo(42L);
+
+        assertThat(result.videoId()).isEqualTo(42L);
+        assertThat(result.likeCount()).isEqualTo(5L);
+        assertThat(result.likedByMe()).isTrue();
+        assertThat(video.getLikeCount()).isEqualTo(5L);
+
+        verify(videoLikeRepository, never()).saveAndFlush(any());
+        verify(videoRepository, never()).save(video);
+    }
+
+    @Test
+    void unlikeVideoRejectsNullId() {
+        assertThatThrownBy(() -> videoService.unlikeVideo(null))
+                .isInstanceOf(InvalidRequestException.class);
+    }
+
+    @Test
+    void unlikeVideoThrowsNotFoundWhenVideoDoesNotExist() {
+        when(videoRepository.findById(999L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> videoService.unlikeVideo(999L))
+                .isInstanceOf(NotFoundException.class)
+                .hasMessage("Video not found with id 999");
+    }
+
+    @Test
+    void unlikeVideoThrowsBadCredentialsWhenAnonymous() {
+        Video video = new Video();
+        video.setId(42L);
+        when(videoRepository.findById(42L)).thenReturn(Optional.of(video));
+
+        assertThatThrownBy(() -> videoService.unlikeVideo(42L))
+                .isInstanceOf(BadCredentialsException.class)
+                .hasMessage("Authentication required");
+    }
+
+    @Test
+    void unlikeVideoDecrementsCountAndDeletesLike() {
+        User author = new User("alice", "alice@example.com", "password");
+        Video video = new Video("Cats", "desc", "url", "thumb", 10.0, 100, 100, author);
+        video.setId(42L);
+        video.setLikeCount(5L);
+
+        User liker = new User("bob", "bob@example.com", "password");
+        liker.setId(2L);
+        VideoLike existing = new VideoLike(video, liker);
+
+        UserPrincipal principal = UserPrincipal.fromUser(liker);
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities()));
+
+        when(userRepository.findById(2L)).thenReturn(Optional.of(liker));
+        when(videoRepository.findById(42L)).thenReturn(Optional.of(video));
+        when(videoLikeRepository.findByVideoIdAndUserId(42L, 2L)).thenReturn(Optional.of(existing));
+
+        VideoLikeDto result = videoService.unlikeVideo(42L);
+
+        assertThat(result.videoId()).isEqualTo(42L);
+        assertThat(result.likeCount()).isEqualTo(4L);
+        assertThat(result.likedByMe()).isFalse();
+        assertThat(video.getLikeCount()).isEqualTo(4L);
+
+        verify(videoLikeRepository).delete(existing);
+        verify(videoLikeRepository).flush();
+        verify(videoRepository).save(video);
+    }
+
+    @Test
+    void unlikeVideoIsIdempotentWhenNotLiked() {
+        User author = new User("alice", "alice@example.com", "password");
+        Video video = new Video("Cats", "desc", "url", "thumb", 10.0, 100, 100, author);
+        video.setId(42L);
+        video.setLikeCount(5L);
+
+        User liker = new User("bob", "bob@example.com", "password");
+        liker.setId(2L);
+
+        UserPrincipal principal = UserPrincipal.fromUser(liker);
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities()));
+
+        when(userRepository.findById(2L)).thenReturn(Optional.of(liker));
+        when(videoRepository.findById(42L)).thenReturn(Optional.of(video));
+        when(videoLikeRepository.findByVideoIdAndUserId(42L, 2L)).thenReturn(Optional.empty());
+
+        VideoLikeDto result = videoService.unlikeVideo(42L);
+
+        assertThat(result.videoId()).isEqualTo(42L);
+        assertThat(result.likeCount()).isEqualTo(5L);
+        assertThat(result.likedByMe()).isFalse();
+
+        verify(videoLikeRepository, never()).delete(any());
+        verify(videoRepository, never()).save(video);
+    }
+
+    @Test
+    void unlikeVideoNeverDecrementsBelowZero() {
+        User author = new User("alice", "alice@example.com", "password");
+        Video video = new Video("Cats", "desc", "url", "thumb", 10.0, 100, 100, author);
+        video.setId(42L);
+        video.setLikeCount(0L);
+
+        User liker = new User("bob", "bob@example.com", "password");
+        liker.setId(2L);
+        VideoLike existing = new VideoLike(video, liker);
+
+        UserPrincipal principal = UserPrincipal.fromUser(liker);
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities()));
+
+        when(userRepository.findById(2L)).thenReturn(Optional.of(liker));
+        when(videoRepository.findById(42L)).thenReturn(Optional.of(video));
+        when(videoLikeRepository.findByVideoIdAndUserId(42L, 2L)).thenReturn(Optional.of(existing));
+
+        VideoLikeDto result = videoService.unlikeVideo(42L);
+
+        assertThat(result.likeCount()).isEqualTo(0L);
+        assertThat(video.getLikeCount()).isEqualTo(0L);
+    }
+
+    @Test
+    void getLikeStatusReturnsCorrectState() {
+        Video video = new Video();
+        video.setId(42L);
+        video.setLikeCount(15L);
+
+        User liker = new User("bob", "bob@example.com", "password");
+        liker.setId(2L);
+
+        UserPrincipal principal = UserPrincipal.fromUser(liker);
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities()));
+
+        when(userRepository.findById(2L)).thenReturn(Optional.of(liker));
+        when(videoRepository.findById(42L)).thenReturn(Optional.of(video));
+        when(videoLikeRepository.existsByVideoIdAndUserId(42L, 2L)).thenReturn(true);
+
+        VideoLikeDto status = videoService.getLikeStatus(42L);
+
+        assertThat(status.videoId()).isEqualTo(42L);
+        assertThat(status.likeCount()).isEqualTo(15L);
+        assertThat(status.likedByMe()).isTrue();
     }
 }

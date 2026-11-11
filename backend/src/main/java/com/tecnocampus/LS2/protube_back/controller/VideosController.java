@@ -2,14 +2,17 @@ package com.tecnocampus.LS2.protube_back.controller;
 
 import com.tecnocampus.LS2.protube_back.dto.PageDto;
 import com.tecnocampus.LS2.protube_back.dto.VideoDetailDto;
+import com.tecnocampus.LS2.protube_back.dto.VideoLikeDto;
 import com.tecnocampus.LS2.protube_back.dto.VideoSummaryDto;
 import com.tecnocampus.LS2.protube_back.dto.VideoUpdateRequestDto;
 import com.tecnocampus.LS2.protube_back.services.VideoService;
 import jakarta.validation.Valid;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -86,5 +89,19 @@ public class VideosController {
             throw new BadCredentialsException("Authentication required");
         }
         return ResponseEntity.ok(videoService.updateVideo(id, request, principal.getName()));
+    }
+
+    @PutMapping("/{id}/like")
+    public ResponseEntity<VideoLikeDto> likeVideo(@PathVariable Long id) {
+        try {
+            return ResponseEntity.ok(videoService.likeVideo(id));
+        } catch (DataIntegrityViolationException ex) {
+            return ResponseEntity.ok(videoService.getLikeStatus(id));
+        }
+    }
+
+    @DeleteMapping("/{id}/like")
+    public ResponseEntity<VideoLikeDto> unlikeVideo(@PathVariable Long id) {
+        return ResponseEntity.ok(videoService.unlikeVideo(id));
     }
 }

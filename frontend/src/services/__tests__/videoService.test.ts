@@ -97,4 +97,66 @@ describe('videoService', () => {
       expect(mockedAxios.put.mock.calls[0][2]).toEqual({ headers: {} });
     });
   });
+
+  describe('likeVideo', () => {
+    it('sends a PUT with bearer token to /videos/{id}/like', async () => {
+      authService.setToken('fake-jwt-token');
+      const mockResponse = { data: { videoId: 42, likeCount: 11, likedByMe: true } };
+      mockedAxios.put.mockResolvedValueOnce(mockResponse);
+
+      const result = await videoService.likeVideo(42);
+
+      expect(result).toEqual(mockResponse.data);
+      expect(mockedAxios.put).toHaveBeenCalledWith(
+        'other/videos/42/like',
+        {},
+        {
+          headers: { Authorization: 'Bearer fake-jwt-token' },
+        }
+      );
+    });
+
+    it('sends empty headers without token', async () => {
+      const mockResponse = { data: { videoId: 42, likeCount: 11, likedByMe: true } };
+      mockedAxios.put.mockResolvedValueOnce(mockResponse);
+
+      const result = await videoService.likeVideo(42);
+
+      expect(result).toEqual(mockResponse.data);
+      expect(mockedAxios.put).toHaveBeenCalledWith(
+        'other/videos/42/like',
+        {},
+        {
+          headers: {},
+        }
+      );
+    });
+  });
+
+  describe('unlikeVideo', () => {
+    it('sends a DELETE with bearer token to /videos/{id}/like', async () => {
+      authService.setToken('fake-jwt-token');
+      const mockResponse = { data: { videoId: 42, likeCount: 10, likedByMe: false } };
+      mockedAxios.delete.mockResolvedValueOnce(mockResponse);
+
+      const result = await videoService.unlikeVideo(42);
+
+      expect(result).toEqual(mockResponse.data);
+      expect(mockedAxios.delete).toHaveBeenCalledWith('other/videos/42/like', {
+        headers: { Authorization: 'Bearer fake-jwt-token' },
+      });
+    });
+
+    it('sends empty headers without token', async () => {
+      const mockResponse = { data: { videoId: 42, likeCount: 10, likedByMe: false } };
+      mockedAxios.delete.mockResolvedValueOnce(mockResponse);
+
+      const result = await videoService.unlikeVideo(42);
+
+      expect(result).toEqual(mockResponse.data);
+      expect(mockedAxios.delete).toHaveBeenCalledWith('other/videos/42/like', {
+        headers: {},
+      });
+    });
+  });
 });
