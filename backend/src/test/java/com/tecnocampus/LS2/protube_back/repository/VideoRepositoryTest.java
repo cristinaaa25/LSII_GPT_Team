@@ -69,6 +69,11 @@ class VideoRepositoryTest {
         return entityManager.persistFlushFind(video);
     }
 
+    /** Builds the three patterns like {@code VideoService} does; {@code term} must already be escaped. */
+    private Page<Video> search(String term, PageRequest page) {
+        return videoRepository.search("%" + term + "%", term + "%", "% " + term + "%", page);
+    }
+
     @Test
     void searchRanksTitleMatchesAboveTagMatchesAboveDescriptionMatches() {
         Instant now = Instant.now();
@@ -78,7 +83,7 @@ class VideoRepositoryTest {
         Video inTitle = persistVideo("Cat videos", "Compilation", List.of("pets"), now.minusSeconds(120));
         persistVideo("Dogs", "Only dogs here", List.of("dogs"), now.minusSeconds(180));
 
-        Page<Video> result = videoRepository.search("%cat%", PageRequest.of(0, 10));
+        Page<Video> result = search("cat", PageRequest.of(0, 10));
 
         assertThat(result.getContent()).containsExactly(inTitle, inTag, inDescription);
         assertThat(result.getTotalElements()).isEqualTo(3);
@@ -90,8 +95,8 @@ class VideoRepositoryTest {
         Video older = persistVideo("Cat one", null, List.of(), now.minusSeconds(60));
         Video newer = persistVideo("Cat two", null, List.of(), now);
 
-        Page<Video> first = videoRepository.search("%cat%", PageRequest.of(0, 1));
-        Page<Video> second = videoRepository.search("%cat%", PageRequest.of(1, 1));
+        Page<Video> first = search("cat", PageRequest.of(0, 1));
+        Page<Video> second = search("cat", PageRequest.of(1, 1));
 
         assertThat(first.getContent()).containsExactly(newer);
         assertThat(second.getContent()).containsExactly(older);
@@ -102,7 +107,7 @@ class VideoRepositoryTest {
     void searchReturnsEmptyPageWhenNothingMatches() {
         persistVideo("Cat videos", "Compilation", List.of("pets"), Instant.now());
 
-        Page<Video> result = videoRepository.search("%nonexistent%", PageRequest.of(0, 10));
+        Page<Video> result = search("nonexistent", PageRequest.of(0, 10));
 
         assertThat(result.getContent()).isEmpty();
         assertThat(result.getTotalElements()).isZero();
@@ -113,9 +118,47 @@ class VideoRepositoryTest {
         Video percent = persistVideo("100% cats", null, List.of(), Instant.now());
         persistVideo("1000 cats", null, List.of(), Instant.now());
 
-        Page<Video> result = videoRepository.search("%100\\%%", PageRequest.of(0, 10));
+        Page<Video> result = search("100\\%", PageRequest.of(0, 10));
 
         assertThat(result.getContent()).containsExactly(percent);
+    }
+
+    @Test
+    void searchRanksTitlePrefixAboveTitleWordPrefixAboveMatchInsideAWord() {
+        Instant now = Instant.now();
+        // Newest first would give the opposite order, so only relevance can produce this one
+        Video inside = persistVideo("Education", null, List.of(), now);
+        Video wordPrefix = persistVideo("Funny cat", null, List.of(), now.minusSeconds(60));
+        Video titlePrefix = persistVideo("Cat videos", null, List.of(), now.minusSeconds(120));
+
+        Page<Video> result = search("cat", PageRequest.of(0, 10));
+
+        assertThat(result.getContent()).containsExactly(titlePrefix, wordPrefix, inside);
+    }
+
+    @Test
+    void searchRanksTagPrefixBelowTitleWordPrefixButAboveMatchesInsideAWord() {
+        Instant now = Instant.now();
+        Video insideTitle = persistVideo("Bobcat facts", "Concatenated catalog", List.of("bobcat"), now);
+        Video tagPrefix = persistVideo("Pets", null, List.of("Catnip"), now.minusSeconds(60));
+        Video wordPrefix = persistVideo("My cat", null, List.of(), now.minusSeconds(120));
+
+        Page<Video> result = search("cat", PageRequest.of(0, 10));
+
+        // Title, tag and description matches inside words (4 + 2 + 1) still lose to one tag prefix (16)
+        assertThat(result.getContent()).containsExactly(wordPrefix, tagPrefix, insideTitle);
+    }
+
+    @Test
+    void searchTreatsEscapedWildcardsLiterallyInPrefixPatterns() {
+        Instant now = Instant.now();
+        // An unescaped "_" would make "axb tricks" a title prefix match (64) and put it first
+        Video wildcardLookalike = persistVideo("axb tricks", "about a_b", List.of(), now);
+        Video literalWordPrefix = persistVideo("Learn a_b", null, List.of(), now.minusSeconds(60));
+
+        Page<Video> result = search("a\\_b", PageRequest.of(0, 10));
+
+        assertThat(result.getContent()).containsExactly(literalWordPrefix, wildcardLookalike);
     }
 
     @Test
