@@ -159,4 +159,27 @@ describe('videoService', () => {
       });
     });
   });
+
+  describe('deleteVideo', () => {
+    it('sends a DELETE request with bearer token to /videos/{id}', async () => {
+      authService.setToken('fake-jwt-token');
+      mockedAxios.delete.mockResolvedValueOnce({ data: null });
+
+      await videoService.deleteVideo(42);
+
+      expect(mockedAxios.delete).toHaveBeenCalledWith('other/videos/42', {
+        headers: { Authorization: 'Bearer fake-jwt-token' },
+      });
+    });
+
+    it('sends a DELETE request without token when not authenticated', async () => {
+      mockedAxios.delete.mockResolvedValueOnce({ data: null });
+
+      await videoService.deleteVideo(42);
+
+      expect(mockedAxios.delete).toHaveBeenCalledWith('other/videos/42', {
+        headers: {},
+      });
+    });
+  });
 });

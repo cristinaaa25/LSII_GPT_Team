@@ -1,5 +1,5 @@
 import React, { useContext, useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import CommentSection from './CommentSection';
 import VideoEditForm from './VideoEditForm';
 import { AuthContext } from '../context/AuthContext';
@@ -19,6 +19,7 @@ const resolveMediaUrl = (value: string | undefined, fallback: string): string =>
 
 const VideoDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const { video, loading, error, notFound, registerView, replaceVideo } = useVideoDetail(id);
   const currentUser = useContext(AuthContext)?.user ?? null;
   const [editing, setEditing] = useState(false);
@@ -26,15 +27,36 @@ const VideoDetailPage: React.FC = () => {
   const [userLiked, setUserLiked] = useState<boolean | null>(null);
   const [likeOffset, setLikeOffset] = useState<number>(0);
   const [likeError, setLikeError] = useState<string | null>(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   useEffect(() => {
     setUserLiked(null);
     setLikeOffset(0);
     setLikeError(null);
+    setShowDeleteModal(false);
+    setDeleteError(null);
   }, [id]);
 
   const liked = userLiked !== null ? userLiked : Boolean(video?.likedByMe);
   const likeCount = Math.max(0, (video?.likes ?? 0) + likeOffset);
+
+  const handleDeleteVideo = async () => {
+    if (!video || video.id === undefined) return;
+    setIsDeleting(true);
+    setDeleteError(null);
+    try {
+      await videoService.deleteVideo(video.id);
+      setShowDeleteModal(false);
+      navigate(`/users/${encodeURIComponent(video.author)}`);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to delete video';
+      setDeleteError(msg);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   const handleToggleLike = async () => {
     if (!video || video.id === undefined) return;
@@ -127,16 +149,28 @@ const VideoDetailPage: React.FC = () => {
         <div className="d-flex justify-content-between align-items-start gap-2">
           <h1 className="h3 mb-2">{video.title}</h1>
           {isOwner && !editing && video.id !== undefined && (
-            <button
-              type="button"
-              className="btn btn-outline-primary btn-sm"
-              onClick={() => {
-                setSaved(false);
-                setEditing(true);
-              }}
-            >
-              Edit
-            </button>
+            <div className="d-flex gap-2">
+              <button
+                type="button"
+                className="btn btn-outline-primary btn-sm"
+                onClick={() => {
+                  setSaved(false);
+                  setEditing(true);
+                }}
+              >
+                Edit
+              </button>
+              <button
+                type="button"
+                className="btn btn-outline-danger btn-sm"
+                onClick={() => {
+                  setDeleteError(null);
+                  setShowDeleteModal(true);
+                }}
+              >
+                Delete
+              </button>
+            </div>
           )}
         </div>
         <div className="d-flex flex-wrap justify-content-between align-items-center border-bottom pb-3 text-body-secondary small">
@@ -219,6 +253,65 @@ const VideoDetailPage: React.FC = () => {
       )}
 
       {video.id !== undefined && <CommentSection videoId={video.id} initialCommentCount={video.commentCount} />}
+
+      {showDeleteModal && (
+        <>
+          <div
+            className="modal fade show d-block"
+            tabIndex={-1}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-video-modal-title"
+          >
+            <div className="modal-dialog modal-dialog-centered">
+              <div className="modal-content">
+                <div className="modal-header">
+                  <h5 className="modal-title" id="delete-video-modal-title">
+                    Delete Video
+                  </h5>
+                  <button
+                    type="button"
+                    className="btn-close"
+                    aria-label="Close"
+                    disabled={isDeleting}
+                    onClick={() => {
+                      if (!isDeleting) {
+                        setShowDeleteModal(false);
+                        setDeleteError(null);
+                      }
+                    }}
+                  />
+                </div>
+                <div className="modal-body">
+                  {deleteError && (
+                    <div className="alert alert-danger" role="alert">
+                      {deleteError}
+                    </div>
+                  )}
+                  <p className="mb-0">Are you sure you want to delete this video? This action cannot be undone.</p>
+                </div>
+                <div className="modal-footer">
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    disabled={isDeleting}
+                    onClick={() => {
+                      setShowDeleteModal(false);
+                      setDeleteError(null);
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <button type="button" className="btn btn-danger" disabled={isDeleting} onClick={handleDeleteVideo}>
+                    {isDeleting ? 'Deleting...' : 'Delete'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="modal-backdrop fade show" />
+        </>
+      )}
     </article>
   );
 };

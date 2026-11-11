@@ -387,6 +387,51 @@ class VideosControllerTest {
         assertThatThrownBy(() -> controller.updateVideo(1L, new VideoUpdateRequestDto("t", "d", List.of(), List.of()), null))
                 .isInstanceOf(BadCredentialsException.class)
                 .hasMessage("Authentication required");
+
+        assertThatThrownBy(() -> controller.deleteVideo(1L, null))
+                .isInstanceOf(BadCredentialsException.class)
+                .hasMessage("Authentication required");
+    }
+
+    @Test
+    @WithMockUser(username = "alice")
+    void deleteVideo_owner_returns204() throws Exception {
+        doNothing().when(videoService).deleteVideo(42L, "alice");
+
+        mockMvc.perform(delete("/api/videos/42"))
+                .andExpect(status().isNoContent());
+
+        verify(videoService).deleteVideo(42L, "alice");
+    }
+
+    @Test
+    @WithMockUser(username = "mallory")
+    void deleteVideo_anotherUser_returns403() throws Exception {
+        doThrow(new ForbiddenException("Only the owner can delete this video"))
+                .when(videoService).deleteVideo(42L, "mallory");
+
+        mockMvc.perform(delete("/api/videos/42"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.detail").value("Only the owner can delete this video"));
+    }
+
+    @Test
+    void deleteVideo_anonymous_returns401() throws Exception {
+        mockMvc.perform(delete("/api/videos/42"))
+                .andExpect(status().isUnauthorized());
+
+        verify(videoService, never()).deleteVideo(any(), any());
+    }
+
+    @Test
+    @WithMockUser(username = "alice")
+    void deleteVideo_notFound_returns404() throws Exception {
+        doThrow(new NotFoundException("Video not found with id 999"))
+                .when(videoService).deleteVideo(999L, "alice");
+
+        mockMvc.perform(delete("/api/videos/999"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.detail").value("Video not found with id 999"));
     }
 
     @Test
