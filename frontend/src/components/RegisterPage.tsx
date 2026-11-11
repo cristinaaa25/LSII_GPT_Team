@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import GoogleLoginButton from './GoogleLoginButton';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -165,6 +166,8 @@ export const RegisterPage: React.FC = () => {
                   {isLoading ? 'Creating account...' : 'Register'}
                 </button>
               </form>
+
+              <GoogleLoginButton />
 
               <div className="text-center mt-3">
                 <span className="text-muted">Already have an account? </span>

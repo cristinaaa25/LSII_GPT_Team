@@ -34,6 +34,7 @@ describe('ProfilePage', () => {
     isLoading: false,
     login: jest.fn(),
     register: jest.fn(),
+    loginWithToken: jest.fn(),
     logout: jest.fn(),
     updateUser: mockUpdateUser,
     ...overrides,

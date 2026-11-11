@@ -206,6 +206,20 @@ class AuthServiceTest {
     }
 
     @Test
+    void loginRejectsGoogleAccountWithoutPassword() {
+        LoginRequestDto request = new LoginRequestDto("googler@gmail.com", "anyPassword1");
+        User user = new User("googler", "googler@gmail.com", null);
+        user.setGoogleSub("google-sub");
+
+        when(userRepository.findByEmail("googler@gmail.com")).thenReturn(Optional.of(user));
+
+        assertThatThrownBy(() -> authService.login(request))
+                .isInstanceOf(BadCredentialsException.class)
+                .hasMessageContaining("Invalid credentials");
+        verifyNoInteractions(passwordEncoder, jwtService);
+    }
+
+    @Test
     void getCurrentUserReturnsUserDto() {
         User user = new User("alice", "alice@example.com", "hash", "avatar", "bio");
         user.setId(5L);

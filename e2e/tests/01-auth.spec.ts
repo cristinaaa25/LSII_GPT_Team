@@ -52,3 +52,41 @@ test.describe('Authentication (US-01, US-02)', () => {
     await expect(page.getByRole('alert')).toBeVisible();
   });
 });
+
+// Google is never contacted: we only check our own pages and the redirect our backend answers with
+test.describe('Google login (US-01, US-02)', () => {
+  for (const path of ['/login', '/register']) {
+    test(`${path} offers "Continue with Google" pointing to the backend`, async ({ page }) => {
+      await page.goto(path);
+
+      const googleLink = page.getByRole('link', { name: 'Continue with Google' });
+      await expect(googleLink).toBeVisible();
+      await expect(googleLink).toHaveAttribute('href', /\/oauth2\/authorization\/google$/);
+    });
+  }
+
+  test('backend starts the Google flow with the openid, profile and email scopes', async ({ request }) => {
+    const response = await request.get('/oauth2/authorization/google', { maxRedirects: 0 });
+
+    expect(response.status()).toBe(302);
+    const location = response.headers()['location'];
+    expect(location).toMatch(/^https:\/\/accounts\.google\.com\/o\/oauth2\/v2\/auth\?/);
+    expect(location).toContain('scope=openid%20profile%20email');
+    expect(location).toContain('/login/oauth2/code/google');
+  });
+
+  test('shows why a Google login was rejected', async ({ page }) => {
+    await page.goto('/login?error=google_email_exists');
+
+    await expect(page.getByRole('alert')).toHaveText(
+      'An account with this email already exists. Sign in with your password.'
+    );
+  });
+
+  test('callback page without a token returns to login with an error', async ({ page }) => {
+    await page.goto('/auth/callback');
+
+    await expect(page).toHaveURL(/\/login\?error=google$/);
+    await expect(page.getByRole('alert')).toHaveText('Google sign-in failed. Please try again.');
+  });
+});

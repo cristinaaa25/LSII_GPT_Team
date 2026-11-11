@@ -9,6 +9,7 @@ if (typeof global.TextEncoder === 'undefined') {
 
 jest.mock('./src/utils/Env', () => ({
   getEnv: () => ({
+    API_DOMAIN: 'http://api.test',
     API_BASE_URL: 'other',
     MEDIA_BASE_URL: 'development',
   }),

@@ -1,7 +1,7 @@
 # Technical debt cleanup (queries, pagination, validation, image checks)
 
-**Approved on:** pending (PR #<n>)
-**Approved by:** team review in PR #<n>
+**Approved on:** 2026-11-10 (PR #23)
+**Approved by:** team review in PR #23
 **Used for:** paying technical debt left by earlier stories without changing API contracts: N+1 queries,
 in-memory aggregation, unpaginated lists, duplicated validation, unused code and weak upload checks.
 

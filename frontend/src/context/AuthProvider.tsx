@@ -59,6 +59,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return res;
   }, []);
 
+  const loginWithToken = useCallback(async (newToken: string): Promise<User> => {
+    // Validate the token with the backend before keeping it
+    const currentUser = await authService.getMe(newToken);
+    authService.setToken(newToken);
+    setToken(newToken);
+    setUser(currentUser);
+    return currentUser;
+  }, []);
+
   const logout = useCallback(async (): Promise<void> => {
     try {
       await authService.logout();
@@ -84,6 +93,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isLoading,
         login,
         register,
+        loginWithToken,
         logout,
         updateUser,
       }}

@@ -12,6 +12,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import ProfilePage from './components/ProfilePage';
 import PublicProfilePage from './components/PublicProfilePage';
 import AnalyticsPage from './components/AnalyticsPage';
+import AuthCallbackPage from './components/AuthCallbackPage';
 import { AuthProvider } from './context/AuthProvider';
 
 interface AppProps {
@@ -54,6 +55,7 @@ export const AppContent: React.FC = () => {
           <Route path="/users/:username" element={<PublicProfilePage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
+          <Route path="/auth/callback" element={<AuthCallbackPage />} />
         </Routes>
       </main>
     </div>

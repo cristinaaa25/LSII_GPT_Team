@@ -18,8 +18,13 @@ public class User {
     @Column(name = "email", nullable = false, unique = true, length = 100)
     private String email;
 
-    @Column(name = "password", nullable = false, length = 255)
+    // Null for accounts created through Google login: they cannot use password login
+    @Column(name = "password", length = 255)
     private String password;
+
+    // Google's stable account id ("sub" claim); null for local accounts
+    @Column(name = "google_sub", unique = true, length = 255)
+    private String googleSub;
 
     @Column(name = "display_name", length = 100)
     private String displayName;
@@ -92,6 +97,14 @@ public class User {
 
     public void setPassword(String password) {
         this.password = password;
+    }
+
+    public String getGoogleSub() {
+        return googleSub;
+    }
+
+    public void setGoogleSub(String googleSub) {
+        this.googleSub = googleSub;
     }
 
     public String getDisplayName() {

@@ -69,6 +69,7 @@ const renderWithAuth = (component: React.ReactElement, isAuthenticated = false) 
     isLoading: false,
     login: jest.fn(),
     register: jest.fn(),
+    loginWithToken: jest.fn(),
     logout: jest.fn(),
   };
 

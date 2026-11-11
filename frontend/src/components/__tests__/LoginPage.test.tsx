@@ -129,4 +129,33 @@ describe('LoginPage', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Login failed. Please check your credentials.');
   });
+
+  it('offers Google login linking to the backend', () => {
+    renderLoginPage();
+
+    expect(screen.getByRole('link', { name: /Continue with Google/i })).toHaveAttribute(
+      'href',
+      'http://api.test/oauth2/authorization/google'
+    );
+  });
+
+  it('explains a failed Google login', () => {
+    renderLoginPage('/login?error=google');
+
+    expect(screen.getByRole('alert')).toHaveTextContent('Google sign-in failed. Please try again.');
+  });
+
+  it('asks to use the password when the Google email already has an account', () => {
+    renderLoginPage('/login?error=google_email_exists');
+
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'An account with this email already exists. Sign in with your password.'
+    );
+  });
+
+  it('ignores unknown error codes in the URL', () => {
+    renderLoginPage('/login?error=constructor');
+
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
 });
