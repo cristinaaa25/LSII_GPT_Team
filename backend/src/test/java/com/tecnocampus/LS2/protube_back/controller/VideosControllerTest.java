@@ -3,6 +3,7 @@ package com.tecnocampus.LS2.protube_back.controller;
 import com.tecnocampus.LS2.protube_back.configuration.SecurityConfig;
 import com.tecnocampus.LS2.protube_back.dto.PageDto;
 import com.tecnocampus.LS2.protube_back.dto.VideoDetailDto;
+import com.tecnocampus.LS2.protube_back.dto.VideoLikeDto;
 import com.tecnocampus.LS2.protube_back.dto.VideoSummaryDto;
 import com.tecnocampus.LS2.protube_back.dto.VideoUpdateRequestDto;
 import com.tecnocampus.LS2.protube_back.exception.ForbiddenException;
@@ -14,6 +15,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -33,6 +35,7 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -384,5 +387,74 @@ class VideosControllerTest {
         assertThatThrownBy(() -> controller.updateVideo(1L, new VideoUpdateRequestDto("t", "d", List.of(), List.of()), null))
                 .isInstanceOf(BadCredentialsException.class)
                 .hasMessage("Authentication required");
+    }
+
+    @Test
+    void likeVideo_unauthenticated_returns401() throws Exception {
+        mockMvc.perform(put("/api/videos/42/like"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @WithMockUser(username = "bob")
+    void likeVideo_authenticated_returns200() throws Exception {
+        when(videoService.likeVideo(42L)).thenReturn(new VideoLikeDto(42L, 10L, true));
+
+        mockMvc.perform(put("/api/videos/42/like"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.videoId").value(42))
+                .andExpect(jsonPath("$.likeCount").value(10))
+                .andExpect(jsonPath("$.likedByMe").value(true));
+    }
+
+    @Test
+    @WithMockUser(username = "bob")
+    void likeVideo_notFound_returns404() throws Exception {
+        when(videoService.likeVideo(999L)).thenThrow(new NotFoundException("Video not found with id 999"));
+
+        mockMvc.perform(put("/api/videos/999/like"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.detail").value("Video not found with id 999"));
+    }
+
+    @Test
+    @WithMockUser(username = "bob")
+    void likeVideo_concurrentDuplicate_returns200WithLikeStatus() throws Exception {
+        when(videoService.likeVideo(42L)).thenThrow(new DataIntegrityViolationException("duplicate key"));
+        when(videoService.getLikeStatus(42L)).thenReturn(new VideoLikeDto(42L, 10L, true));
+
+        mockMvc.perform(put("/api/videos/42/like"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.videoId").value(42))
+                .andExpect(jsonPath("$.likeCount").value(10))
+                .andExpect(jsonPath("$.likedByMe").value(true));
+    }
+
+    @Test
+    void unlikeVideo_unauthenticated_returns401() throws Exception {
+        mockMvc.perform(delete("/api/videos/42/like"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @WithMockUser(username = "bob")
+    void unlikeVideo_authenticated_returns200() throws Exception {
+        when(videoService.unlikeVideo(42L)).thenReturn(new VideoLikeDto(42L, 9L, false));
+
+        mockMvc.perform(delete("/api/videos/42/like"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.videoId").value(42))
+                .andExpect(jsonPath("$.likeCount").value(9))
+                .andExpect(jsonPath("$.likedByMe").value(false));
+    }
+
+    @Test
+    @WithMockUser(username = "bob")
+    void unlikeVideo_notFound_returns404() throws Exception {
+        when(videoService.unlikeVideo(999L)).thenThrow(new NotFoundException("Video not found with id 999"));
+
+        mockMvc.perform(delete("/api/videos/999/like"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.detail").value("Video not found with id 999"));
     }
 }

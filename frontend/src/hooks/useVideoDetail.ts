@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import axios from 'axios';
 import type { VideoDetail } from '../types/video';
 import { getEnv } from '../utils/Env';
+import { authService } from '../services/authService';
 
 interface UseVideoDetailReturn {
   video: VideoDetail | null;
@@ -34,8 +35,14 @@ export function useVideoDetail(id: string | undefined): UseVideoDetailReturn {
     setError(null);
     setNotFound(false);
 
+    const token = authService.getToken();
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+
     axios
-      .get<VideoDetail>(`${getEnv().API_BASE_URL}/videos/${id}`)
+      .get<VideoDetail>(`${getEnv().API_BASE_URL}/videos/${id}`, { headers })
       .then((res) => {
         if (isMounted) {
           setVideo(res.data);

@@ -1,7 +1,7 @@
 import axios, { AxiosProgressEvent } from 'axios';
 import { getEnv } from '../utils/Env';
 import { authService } from './authService';
-import type { VideoDetail, VideoUpdatePayload } from '../types/video';
+import type { VideoDetail, VideoLikeResponse, VideoUpdatePayload } from '../types/video';
 
 export interface UploadVideoPayload {
   file: File;
@@ -53,6 +53,28 @@ export const videoService = {
     }
 
     const res = await axios.put<VideoDetail>(`${getEnv().API_BASE_URL}/videos/${id}`, payload, { headers });
+    return res.data;
+  },
+
+  likeVideo: async (id: number): Promise<VideoLikeResponse> => {
+    const token = authService.getToken();
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+
+    const res = await axios.put<VideoLikeResponse>(`${getEnv().API_BASE_URL}/videos/${id}/like`, {}, { headers });
+    return res.data;
+  },
+
+  unlikeVideo: async (id: number): Promise<VideoLikeResponse> => {
+    const token = authService.getToken();
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+
+    const res = await axios.delete<VideoLikeResponse>(`${getEnv().API_BASE_URL}/videos/${id}/like`, { headers });
     return res.data;
   },
 };

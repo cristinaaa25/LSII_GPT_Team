@@ -18,5 +18,12 @@ public record VideoDetailDto(
         Long likes,
         Long commentCount,
         String videoUrl,
-        String thumbnailUrl) {
+        String thumbnailUrl,
+        boolean likedByMe) {
+
+    public VideoDetailDto(Long id, String title, String description, List<String> tags, List<String> categories,
+                          String author, Instant uploadDate, Long views, Long likes, Long commentCount,
+                          String videoUrl, String thumbnailUrl) {
+        this(id, title, description, tags, categories, author, uploadDate, views, likes, commentCount, videoUrl, thumbnailUrl, false);
+    }
 }

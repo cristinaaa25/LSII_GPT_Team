@@ -3,6 +3,7 @@ import axios from 'axios';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import VideoDetailPage from '../VideoDetailPage';
 import { AuthContext, AuthContextType } from '../../context/AuthContext';
+import { authService } from '../../services/authService';
 import type { VideoDetail } from '../../types/video';
 
 jest.mock('axios', () => {
@@ -13,6 +14,7 @@ jest.mock('axios', () => {
       get: jest.fn(),
       post: jest.fn(),
       put: jest.fn(),
+      delete: jest.fn(),
       isAxiosError:
         actualAxios.isAxiosError || ((err: unknown) => Boolean((err as { isAxiosError?: boolean })?.isAxiosError)),
     },
@@ -24,6 +26,7 @@ jest.mock('axios', () => {
 const mockedGet = axios.get as jest.Mock;
 const mockedPost = axios.post as jest.Mock;
 const mockedPut = axios.put as jest.Mock;
+const mockedDelete = axios.delete as jest.Mock;
 
 const sampleVideo: VideoDetail = {
   id: 42,
@@ -74,8 +77,39 @@ describe('VideoDetailPage', () => {
     mockedGet.mockReset();
     mockedPost.mockReset();
     mockedPut.mockReset();
+    mockedDelete.mockReset();
+    authService.removeToken();
     mockVideoResponse();
   });
+
+  const renderAs = (username: string | null) => {
+    if (username) {
+      authService.setToken('jwt');
+    } else {
+      authService.removeToken();
+    }
+    const auth: AuthContextType = {
+      user: username ? { id: 1, username, email: `${username}@example.com` } : null,
+      token: username ? 'jwt' : null,
+      isAuthenticated: username !== null,
+      isLoading: false,
+      login: jest.fn(),
+      register: jest.fn(),
+      loginWithToken: jest.fn(),
+      logout: jest.fn(),
+    };
+    return render(
+      <AuthContext.Provider value={auth}>
+        <MemoryRouter initialEntries={['/videos/42']}>
+          <Routes>
+            <Route path="/videos/:id" element={<VideoDetailPage />} />
+            <Route path="/" element={<div>Catalog Home</div>} />
+            <Route path="/login" element={<div>Login Page</div>} />
+          </Routes>
+        </MemoryRouter>
+      </AuthContext.Provider>
+    );
+  };
 
   it('shows a loading spinner while fetching video details', () => {
     mockedGet.mockReturnValue(new Promise(() => {}));
@@ -200,28 +234,6 @@ describe('VideoDetailPage', () => {
   });
 
   describe('metadata editing', () => {
-    const renderAs = (username: string | null) => {
-      const auth: AuthContextType = {
-        user: username ? { id: 1, username, email: `${username}@example.com` } : null,
-        token: username ? 'jwt' : null,
-        isAuthenticated: username !== null,
-        isLoading: false,
-        login: jest.fn(),
-        register: jest.fn(),
-        loginWithToken: jest.fn(),
-        logout: jest.fn(),
-      };
-      return render(
-        <AuthContext.Provider value={auth}>
-          <MemoryRouter initialEntries={['/videos/42']}>
-            <Routes>
-              <Route path="/videos/:id" element={<VideoDetailPage />} />
-            </Routes>
-          </MemoryRouter>
-        </AuthContext.Provider>
-      );
-    };
-
     it('shows the Edit button only to the owner', async () => {
       renderAs('David Attenborough');
 
@@ -282,6 +294,143 @@ describe('VideoDetailPage', () => {
 
       expect(screen.queryByRole('form', { name: 'Edit video' })).not.toBeInTheDocument();
       expect(mockedPut).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('video likes', () => {
+    it('renders a link to /login with like count for anonymous users', async () => {
+      renderAs(null);
+
+      const loginLikeLink = await screen.findByRole('link', { name: 'Log in to like' });
+      expect(loginLikeLink).toBeInTheDocument();
+      expect(loginLikeLink).toHaveAttribute('href', '/login');
+      expect(loginLikeLink).toHaveTextContent('350 likes');
+      expect(screen.queryByRole('button', { name: /like video/i })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { pressed: true })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { pressed: false })).not.toBeInTheDocument();
+    });
+
+    it('renders an unpressed like button when authenticated user has not liked the video', async () => {
+      mockVideoResponse({ ...sampleVideo, likedByMe: false });
+      renderAs('alice');
+
+      const likeButton = await screen.findByRole('button', { name: 'Like video' });
+      expect(likeButton).toBeInTheDocument();
+      expect(likeButton).toHaveAttribute('aria-pressed', 'false');
+      expect(likeButton).toHaveTextContent('350 likes');
+      expect(screen.queryByRole('link', { name: 'Log in to like' })).not.toBeInTheDocument();
+    });
+
+    it('renders a pressed like button when authenticated user has already liked the video', async () => {
+      mockVideoResponse({ ...sampleVideo, likedByMe: true });
+      renderAs('alice');
+
+      const likeButton = await screen.findByRole('button', { name: 'Unlike video' });
+      expect(likeButton).toBeInTheDocument();
+      expect(likeButton).toHaveAttribute('aria-pressed', 'true');
+      expect(likeButton).toHaveTextContent('350 likes');
+    });
+
+    it('optimistically increments count and sets aria-pressed="true" on like', async () => {
+      mockVideoResponse({ ...sampleVideo, likedByMe: false, likes: 10 });
+      mockedPut.mockResolvedValueOnce({ data: { videoId: 42, likeCount: 11, likedByMe: true } });
+      renderAs('alice');
+
+      const likeButton = await screen.findByRole('button', { name: 'Like video' });
+      expect(likeButton).toHaveTextContent('10 likes');
+      expect(likeButton).toHaveAttribute('aria-pressed', 'false');
+
+      await act(async () => {
+        fireEvent.click(likeButton);
+      });
+
+      expect(likeButton).toHaveAttribute('aria-pressed', 'true');
+      expect(likeButton).toHaveAttribute('aria-label', 'Unlike video');
+      expect(likeButton).toHaveTextContent('11 likes');
+      expect(mockedPut).toHaveBeenCalledWith(
+        'other/videos/42/like',
+        {},
+        expect.objectContaining({ headers: expect.objectContaining({ Authorization: 'Bearer jwt' }) })
+      );
+    });
+
+    it('optimistically decrements count and sets aria-pressed="false" on unlike', async () => {
+      mockVideoResponse({ ...sampleVideo, likedByMe: true, likes: 10 });
+      mockedDelete.mockResolvedValueOnce({ data: { videoId: 42, likeCount: 9, likedByMe: false } });
+      renderAs('alice');
+
+      const unlikeButton = await screen.findByRole('button', { name: 'Unlike video' });
+      expect(unlikeButton).toHaveTextContent('10 likes');
+      expect(unlikeButton).toHaveAttribute('aria-pressed', 'true');
+
+      await act(async () => {
+        fireEvent.click(unlikeButton);
+      });
+
+      expect(unlikeButton).toHaveAttribute('aria-pressed', 'false');
+      expect(unlikeButton).toHaveAttribute('aria-label', 'Like video');
+      expect(unlikeButton).toHaveTextContent('9 likes');
+      expect(mockedDelete).toHaveBeenCalledWith(
+        'other/videos/42/like',
+        expect.objectContaining({ headers: expect.objectContaining({ Authorization: 'Bearer jwt' }) })
+      );
+    });
+
+    it('rolls back like count and button state on like error and displays error message', async () => {
+      mockVideoResponse({ ...sampleVideo, likedByMe: false, likes: 10 });
+      mockedPut.mockRejectedValueOnce(new Error('Network connection failed'));
+      renderAs('alice');
+
+      const likeButton = await screen.findByRole('button', { name: 'Like video' });
+      expect(likeButton).toHaveTextContent('10 likes');
+
+      await act(async () => {
+        fireEvent.click(likeButton);
+      });
+
+      expect(likeButton).toHaveAttribute('aria-pressed', 'false');
+      expect(likeButton).toHaveAttribute('aria-label', 'Like video');
+      expect(likeButton).toHaveTextContent('10 likes');
+
+      const errorAlert = screen.getByRole('alert');
+      expect(errorAlert).toBeInTheDocument();
+      expect(errorAlert).toHaveTextContent('Network connection failed');
+    });
+
+    it('rolls back like count and button state on unlike error and displays error message', async () => {
+      mockVideoResponse({ ...sampleVideo, likedByMe: true, likes: 10 });
+      mockedDelete.mockRejectedValueOnce(new Error('Server error'));
+      renderAs('alice');
+
+      const unlikeButton = await screen.findByRole('button', { name: 'Unlike video' });
+      expect(unlikeButton).toHaveTextContent('10 likes');
+
+      await act(async () => {
+        fireEvent.click(unlikeButton);
+      });
+
+      expect(unlikeButton).toHaveAttribute('aria-pressed', 'true');
+      expect(unlikeButton).toHaveAttribute('aria-label', 'Unlike video');
+      expect(unlikeButton).toHaveTextContent('10 likes');
+
+      const errorAlert = screen.getByRole('alert');
+      expect(errorAlert).toBeInTheDocument();
+      expect(errorAlert).toHaveTextContent('Server error');
+    });
+
+    it('never displays a negative like count when decrementing at 0 likes', async () => {
+      mockVideoResponse({ ...sampleVideo, likedByMe: true, likes: 0 });
+      mockedDelete.mockResolvedValueOnce({ data: { videoId: 42, likeCount: 0, likedByMe: false } });
+      renderAs('alice');
+
+      const unlikeButton = await screen.findByRole('button', { name: 'Unlike video' });
+      expect(unlikeButton).toHaveTextContent('0 likes');
+
+      await act(async () => {
+        fireEvent.click(unlikeButton);
+      });
+
+      expect(unlikeButton).toHaveTextContent('0 likes');
     });
   });
 });
