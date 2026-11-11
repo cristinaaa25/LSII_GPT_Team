@@ -51,7 +51,7 @@ class VideoRepositoryTest {
         assertThat(saved.getUploader().getId()).isEqualTo(uploader.getId());
         assertThat(saved.getCreatedAt()).isNotNull();
 
-        List<Video> userVideos = videoRepository.findByUploaderId(uploader.getId());
+        List<Video> userVideos = videoRepository.findByUploaderId(uploader.getId(), PageRequest.of(0, 10)).getContent();
         assertThat(userVideos).hasSize(1);
         assertThat(userVideos.get(0).getTitle()).isEqualTo("Spring Boot Tutorial");
 

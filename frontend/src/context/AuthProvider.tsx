@@ -62,6 +62,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = useCallback(async (): Promise<void> => {
     try {
       await authService.logout();
+    } catch {
+      // ignore logout errors so local state is cleared even if server fails
     } finally {
       authService.removeToken();
       setUser(null);

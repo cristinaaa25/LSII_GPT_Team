@@ -38,6 +38,16 @@ describe('userService', () => {
     expect(mockedAxios.get).toHaveBeenCalledWith('other/users/alice');
   });
 
+  it('fetches one page of a user public videos', async () => {
+    const page = { content: [], page: 1, size: 12, totalElements: 13, totalPages: 2, last: true };
+    mockedAxios.get.mockResolvedValueOnce({ data: page });
+
+    const result = await userService.getPublicVideos('al ice', 1, 12);
+
+    expect(result).toEqual(page);
+    expect(mockedAxios.get).toHaveBeenCalledWith('other/users/al%20ice/videos', { params: { page: 1, size: 12 } });
+  });
+
   it('fetches own profile with token', async () => {
     authService.setToken('alice-token');
     const user = { id: 1, username: 'alice', email: 'alice@example.com' };

@@ -12,6 +12,7 @@
     "format": "prettier --write .",
     "preview": "vite preview",
     "test": "jest --collectCoverage=true --coverage",
+    "test:e2e": "npm --prefix ../e2e test",
     "precommit": "lint-staged"
   },
   "dependencies": {
@@ -25,7 +26,8 @@
     "prettier": "^3.6.2",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
-    "react-router-dom": "^7.18.4"
+    "react-router-dom": "^7.18.4",
+    "recharts": "^3.10.1"
   },
   "devDependencies": {
     "@babel/preset-env": "^7.28.3",

@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.ActiveProfiles;
 
 import java.util.List;
@@ -54,11 +55,11 @@ class CommentRepositoryTest {
         assertThat(savedReply.getParent()).isNotNull();
         assertThat(savedReply.getParent().getId()).isEqualTo(savedRoot.getId());
 
-        List<Comment> rootComments = commentRepository.findByVideoIdAndParentIsNullOrderByCreatedAtDesc(video.getId());
+        List<Comment> rootComments = commentRepository.findByVideoIdAndParentIsNullOrderByCreatedAtDesc(video.getId(), PageRequest.of(0, 10)).getContent();
         assertThat(rootComments).hasSize(1);
         assertThat(rootComments.get(0).getText()).isEqualTo("Great video!");
 
-        List<Comment> replies = commentRepository.findByParentIdOrderByCreatedAtAsc(savedRoot.getId());
+        List<Comment> replies = commentRepository.findByParentIdInOrderByCreatedAtAsc(List.of(savedRoot.getId()));
         assertThat(replies).hasSize(1);
         assertThat(replies.get(0).getText()).isEqualTo("I agree!");
     }

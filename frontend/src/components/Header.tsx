@@ -101,6 +101,11 @@ export const Header: React.FC = () => {
                       </Link>
                     </li>
                     <li>
+                      <Link to="/analytics" className="dropdown-item" onClick={() => setDropdownOpen(false)}>
+                        Analytics
+                      </Link>
+                    </li>
+                    <li>
                       <Link
                         to={`/users/${encodeURIComponent(user.username)}`}
                         className="dropdown-item"

@@ -3,10 +3,20 @@ import { getEnv } from '../utils/Env';
 import { authService } from './authService';
 import { User } from '../types/auth';
 import { UpdateProfilePayload, UserProfile } from '../types/user';
+import { Page, VideoSummary } from '../types/video';
 
 export const userService = {
   getPublicProfile: async (username: string): Promise<UserProfile> => {
     const res = await axios.get<UserProfile>(`${getEnv().API_BASE_URL}/users/${encodeURIComponent(username)}`);
+    return res.data;
+  },
+
+  /** One page of a user's videos, newest first (public, same shape as /api/videos). */
+  getPublicVideos: async (username: string, page: number, size: number): Promise<Page<VideoSummary>> => {
+    const res = await axios.get<Page<VideoSummary>>(
+      `${getEnv().API_BASE_URL}/users/${encodeURIComponent(username)}/videos`,
+      { params: { page, size } }
+    );
     return res.data;
   },
 

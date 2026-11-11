@@ -11,6 +11,7 @@ import UploadPage from './components/UploadPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import ProfilePage from './components/ProfilePage';
 import PublicProfilePage from './components/PublicProfilePage';
+import AnalyticsPage from './components/AnalyticsPage';
 import { AuthProvider } from './context/AuthProvider';
 
 interface AppProps {
@@ -39,6 +40,14 @@ export const AppContent: React.FC = () => {
             element={
               <ProtectedRoute>
                 <ProfilePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/analytics"
+            element={
+              <ProtectedRoute>
+                <AnalyticsPage />
               </ProtectedRoute>
             }
           />

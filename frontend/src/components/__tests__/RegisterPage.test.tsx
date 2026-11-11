@@ -126,4 +126,32 @@ describe('RegisterPage', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Email already in use');
     expect(screen.queryByText('Home Page Content')).not.toBeInTheDocument();
   });
+
+  it('displays generic error message when an Error is thrown', async () => {
+    mockedPost.mockRejectedValueOnce(new Error('Network error on register'));
+
+    renderRegisterPage();
+
+    fireEvent.change(screen.getByLabelText(/Username/i), { target: { value: 'bob' } });
+    fireEvent.change(screen.getByLabelText(/Email address/i), { target: { value: 'bob@example.com' } });
+    fireEvent.change(screen.getByLabelText(/^Password/i), { target: { value: 'secret123' } });
+
+    fireEvent.click(screen.getByRole('button', { name: /^Register$/i }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Network error on register');
+  });
+
+  it('displays fallback error message when unknown error is thrown', async () => {
+    mockedPost.mockRejectedValueOnce('Unknown error');
+
+    renderRegisterPage();
+
+    fireEvent.change(screen.getByLabelText(/Username/i), { target: { value: 'bob' } });
+    fireEvent.change(screen.getByLabelText(/Email address/i), { target: { value: 'bob@example.com' } });
+    fireEvent.change(screen.getByLabelText(/^Password/i), { target: { value: 'secret123' } });
+
+    fireEvent.click(screen.getByRole('button', { name: /^Register$/i }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Registration failed. Please check your details.');
+  });
 });

@@ -16,6 +16,7 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -24,6 +25,7 @@ import java.time.Instant;
 import java.util.Collections;
 import java.util.List;
 
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
@@ -368,5 +370,19 @@ class VideosControllerTest {
                 .andExpect(status().isBadRequest());
 
         verify(videoService, never()).updateVideo(any(), any(), any());
+    }
+
+    @Test
+    void directControllerCallsThrowBadCredentialsWhenPrincipalNull() {
+        VideosController controller = new VideosController(videoService);
+        MockMultipartFile file = new MockMultipartFile("file", "vid.mp4", "video/mp4", new byte[]{1});
+
+        assertThatThrownBy(() -> controller.uploadVideo(file, "title", "desc", List.of(), List.of(), null, null))
+                .isInstanceOf(BadCredentialsException.class)
+                .hasMessage("Authentication required");
+
+        assertThatThrownBy(() -> controller.updateVideo(1L, new VideoUpdateRequestDto("t", "d", List.of(), List.of()), null))
+                .isInstanceOf(BadCredentialsException.class)
+                .hasMessage("Authentication required");
     }
 }

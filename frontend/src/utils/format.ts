@@ -37,3 +37,11 @@ export function resolveAvatarUrl(url: string | null | undefined): string | undef
   const path = trimmed.replace(/^\/?media\//, '').replace(/^\//, '');
   return `${getEnv().MEDIA_BASE_URL}/${path}`;
 }
+
+/** Formats an ISO date string (YYYY-MM-DD) for chart axis ticks (MM-DD). */
+export function formatChartDate(val: string | null | undefined): string {
+  if (typeof val === 'string' && val.length >= 10) {
+    return val.slice(5);
+  }
+  return val ?? '';
+}

@@ -15,6 +15,7 @@ import com.tecnocampus.LS2.protube_back.repository.UserRepository;
 import com.tecnocampus.LS2.protube_back.repository.VideoRepository;
 import com.tecnocampus.LS2.protube_back.repository.VideoViewRepository;
 import com.tecnocampus.LS2.protube_back.security.UserPrincipal;
+import com.tecnocampus.LS2.protube_back.TestImages;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -292,7 +293,7 @@ class VideoServiceTest {
         });
 
         MockMultipartFile file = new MockMultipartFile("file", "clip.mp4", "video/mp4", "mp4 dummy content".getBytes());
-        MockMultipartFile thumb = new MockMultipartFile("thumbnail", "thumb.jpg", "image/jpeg", "thumb bytes".getBytes());
+        MockMultipartFile thumb = new MockMultipartFile("thumbnail", "thumb.jpg", "image/jpeg", TestImages.jpeg());
 
         VideoDetailDto result = customService.uploadVideo(
                 file, "Spring Boot", "Great tutorial", List.of("java", "spring"), List.of("Education"), thumb, "alice"
@@ -311,7 +312,7 @@ class VideoServiceTest {
         assertThat(Files.exists(storedVideo)).isTrue();
         assertThat(Files.exists(storedThumb)).isTrue();
         assertThat(Files.readAllBytes(storedVideo)).isEqualTo("mp4 dummy content".getBytes());
-        assertThat(Files.readAllBytes(storedThumb)).isEqualTo("thumb bytes".getBytes());
+        assertThat(Files.readAllBytes(storedThumb)).isEqualTo(TestImages.jpeg());
     }
 
     @Test
@@ -457,11 +458,24 @@ class VideoServiceTest {
         when(userRepository.findByUsername("alice")).thenReturn(Optional.of(alice));
         when(videoRepository.save(any(Video.class))).thenAnswer(inv -> inv.getArgument(0));
         MockMultipartFile file = new MockMultipartFile("file", "clip.mp4", "video/mp4", "content".getBytes());
-        MockMultipartFile thumb = new MockMultipartFile("thumbnail", "cover.svg", "image/png", "png bytes".getBytes());
+        MockMultipartFile thumb = new MockMultipartFile("thumbnail", "cover.svg", "image/png", TestImages.png());
 
         VideoDetailDto result = customService.uploadVideo(file, "Title", "Desc", List.of(), List.of(), thumb, "alice");
 
         assertThat(result.thumbnailUrl()).endsWith(".png");
+    }
+
+    @Test
+    void uploadVideoRejectsThumbnailWhoseBytesAreNotAnImage() {
+        User alice = new User("alice", "alice@example.com", "pass");
+        when(userRepository.findByUsername("alice")).thenReturn(Optional.of(alice));
+        MockMultipartFile file = new MockMultipartFile("file", "clip.mp4", "video/mp4", "content".getBytes());
+        MockMultipartFile fake = new MockMultipartFile("thumbnail", "cover.png", "image/png", "just text".getBytes());
+
+        assertThatThrownBy(() -> videoService.uploadVideo(file, "Title", "Desc", List.of(), List.of(), fake, "alice"))
+                .isInstanceOf(InvalidRequestException.class)
+                .hasMessageContaining("not a valid PNG, JPG or WEBP image");
+        verify(videoRepository, never()).save(any());
     }
 
     @Test
