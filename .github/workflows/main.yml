@@ -123,6 +123,12 @@ jobs:
           mkdir -p videos
           cp e2e/fixtures/seed_store/* videos/
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          driver-opts: |
+            network=host
+
       - name: Start Docker Compose stack
         run: docker compose up -d --build
 
