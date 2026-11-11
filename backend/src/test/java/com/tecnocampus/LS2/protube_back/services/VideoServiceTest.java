@@ -901,4 +901,91 @@ class VideoServiceTest {
         assertThat(status.likeCount()).isEqualTo(15L);
         assertThat(status.likedByMe()).isTrue();
     }
+
+    @Test
+    void deleteVideo_owner_deletesVideoAndFiles(@TempDir Path tempDir) throws IOException {
+        Path storePath = tempDir.resolve("store");
+        Files.createDirectories(storePath);
+        Path vidFile = storePath.resolve("vid42.mp4");
+        Path thumbFile = storePath.resolve("vid42.webp");
+        Files.writeString(vidFile, "video content");
+        Files.writeString(thumbFile, "thumb content");
+
+        VideoService service = new VideoService(
+                videoRepository, commentRepository, videoViewRepository, videoLikeRepository, userRepository, storePath.toString()
+        );
+
+        User owner = new User("alice", "alice@example.com", "pass");
+        Video video = new Video("Title", "vid42.mp4", owner);
+        video.setId(42L);
+        video.setThumbnailUrl("vid42.webp");
+
+        when(videoRepository.findById(42L)).thenReturn(Optional.of(video));
+
+        service.deleteVideo(42L, "alice");
+
+        verify(videoRepository).delete(video);
+        assertThat(Files.exists(vidFile)).isFalse();
+        assertThat(Files.exists(thumbFile)).isFalse();
+    }
+
+    @Test
+    void deleteVideo_notOwner_throwsForbidden() {
+        User owner = new User("alice", "alice@example.com", "pass");
+        Video video = new Video("Title", "vid.mp4", owner);
+        video.setId(42L);
+
+        when(videoRepository.findById(42L)).thenReturn(Optional.of(video));
+
+        assertThatThrownBy(() -> videoService.deleteVideo(42L, "mallory"))
+                .isInstanceOf(ForbiddenException.class)
+                .hasMessage("Only the owner can delete this video");
+
+        verify(videoRepository, never()).delete(any());
+    }
+
+    @Test
+    void deleteVideo_notFound_throwsNotFound() {
+        when(videoRepository.findById(999L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> videoService.deleteVideo(999L, "alice"))
+                .isInstanceOf(NotFoundException.class)
+                .hasMessage("Video not found with id 999");
+
+        verify(videoRepository, never()).delete(any());
+    }
+
+    @Test
+    void deleteVideo_anonymous_throwsBadCredentials() {
+        assertThatThrownBy(() -> videoService.deleteVideo(42L, null))
+                .isInstanceOf(BadCredentialsException.class)
+                .hasMessage("Authentication required");
+
+        assertThatThrownBy(() -> videoService.deleteVideo(42L, "   "))
+                .isInstanceOf(BadCredentialsException.class)
+                .hasMessage("Authentication required");
+
+        verifyNoInteractions(videoRepository);
+    }
+
+    @Test
+    void deleteVideo_nullId_throwsInvalidRequest() {
+        assertThatThrownBy(() -> videoService.deleteVideo(null, "alice"))
+                .isInstanceOf(InvalidRequestException.class)
+                .hasMessage("Video id must not be null");
+
+        verifyNoInteractions(videoRepository);
+    }
+
+    @Test
+    void deleteStoreFile_missingFile_doesNotThrow(@TempDir Path tempDir) {
+        VideoService service = new VideoService(
+                videoRepository, commentRepository, videoViewRepository, videoLikeRepository, userRepository, tempDir.toString()
+        );
+
+        service.deleteStoreFile("nonexistent.mp4");
+        service.deleteStoreFile(null);
+        service.deleteStoreFile("");
+        service.deleteStoreFile("https://example.com/video.mp4");
+    }
 }

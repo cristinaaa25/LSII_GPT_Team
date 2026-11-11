@@ -77,4 +77,14 @@ export const videoService = {
     const res = await axios.delete<VideoLikeResponse>(`${getEnv().API_BASE_URL}/videos/${id}/like`, { headers });
     return res.data;
   },
+
+  deleteVideo: async (id: number): Promise<void> => {
+    const token = authService.getToken();
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+
+    await axios.delete(`${getEnv().API_BASE_URL}/videos/${id}`, { headers });
+  },
 };

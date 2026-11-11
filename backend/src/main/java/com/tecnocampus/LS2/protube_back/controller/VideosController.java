@@ -91,6 +91,15 @@ public class VideosController {
         return ResponseEntity.ok(videoService.updateVideo(id, request, principal.getName()));
     }
 
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteVideo(@PathVariable Long id, Principal principal) {
+        if (principal == null) {
+            throw new BadCredentialsException("Authentication required");
+        }
+        videoService.deleteVideo(id, principal.getName());
+        return ResponseEntity.noContent().build();
+    }
+
     @PutMapping("/{id}/like")
     public ResponseEntity<VideoLikeDto> likeVideo(@PathVariable Long id) {
         try {

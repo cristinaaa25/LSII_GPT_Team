@@ -105,6 +105,7 @@ describe('VideoDetailPage', () => {
             <Route path="/videos/:id" element={<VideoDetailPage />} />
             <Route path="/" element={<div>Catalog Home</div>} />
             <Route path="/login" element={<div>Login Page</div>} />
+            <Route path="/users/:username" element={<div>User Profile</div>} />
           </Routes>
         </MemoryRouter>
       </AuthContext.Provider>
@@ -431,6 +432,111 @@ describe('VideoDetailPage', () => {
       });
 
       expect(unlikeButton).toHaveTextContent('0 likes');
+    });
+  });
+
+  describe('Delete video', () => {
+    it('does not render Delete button for anonymous user or non-owner', async () => {
+      mockVideoResponse();
+      renderAs(null);
+      await screen.findByRole('heading', { level: 1, name: sampleVideo.title });
+      expect(screen.queryByRole('button', { name: 'Delete' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument();
+
+      // Render as another user
+      renderAs('another_user');
+      await screen.findByRole('heading', { level: 1, name: sampleVideo.title });
+      expect(screen.queryByRole('button', { name: 'Delete' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument();
+    });
+
+    it('renders Delete button next to Edit for video owner', async () => {
+      mockVideoResponse();
+      renderAs(sampleVideo.author);
+
+      const deleteBtn = await screen.findByRole('button', { name: 'Delete' });
+      const editBtn = screen.getByRole('button', { name: 'Edit' });
+
+      expect(deleteBtn).toBeInTheDocument();
+      expect(editBtn).toBeInTheDocument();
+    });
+
+    it('opens confirmation modal and dismisses on Cancel', async () => {
+      mockVideoResponse();
+      renderAs(sampleVideo.author);
+
+      const deleteBtn = await screen.findByRole('button', { name: 'Delete' });
+      fireEvent.click(deleteBtn);
+
+      const dialog = screen.getByRole('dialog');
+      expect(dialog).toBeInTheDocument();
+      expect(screen.getByText(/Are you sure you want to delete this video/i)).toBeInTheDocument();
+
+      const cancelBtn = screen.getByRole('button', { name: 'Cancel' });
+      fireEvent.click(cancelBtn);
+
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      expect(mockedDelete).not.toHaveBeenCalled();
+    });
+
+    it('opens confirmation modal and dismisses on Close (X) button', async () => {
+      mockVideoResponse();
+      renderAs(sampleVideo.author);
+
+      const deleteBtn = await screen.findByRole('button', { name: 'Delete' });
+      fireEvent.click(deleteBtn);
+
+      expect(screen.getByRole('dialog')).toBeInTheDocument();
+
+      const closeBtn = screen.getByRole('button', { name: 'Close' });
+      fireEvent.click(closeBtn);
+
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      expect(mockedDelete).not.toHaveBeenCalled();
+    });
+
+    it('confirms deletion, calls videoService.deleteVideo, and navigates to owner profile on success', async () => {
+      mockVideoResponse();
+      mockedDelete.mockResolvedValueOnce({ data: null });
+      renderAs(sampleVideo.author);
+
+      const deleteBtn = await screen.findByRole('button', { name: 'Delete' });
+      fireEvent.click(deleteBtn);
+
+      const confirmDeleteBtn = screen.getByRole('dialog').querySelector('.modal-footer .btn-danger') as HTMLElement;
+      expect(confirmDeleteBtn).toBeInTheDocument();
+
+      await act(async () => {
+        fireEvent.click(confirmDeleteBtn);
+      });
+
+      expect(mockedDelete).toHaveBeenCalledWith(
+        'other/videos/42',
+        expect.objectContaining({ headers: expect.objectContaining({ Authorization: 'Bearer jwt' }) })
+      );
+
+      // On success, navigated to owner's profile
+      expect(await screen.findByText('User Profile')).toBeInTheDocument();
+    });
+
+    it('shows error alert inside modal when deletion fails', async () => {
+      mockVideoResponse();
+      mockedDelete.mockRejectedValueOnce(new Error('Network error: failed to delete'));
+      renderAs(sampleVideo.author);
+
+      const deleteBtn = await screen.findByRole('button', { name: 'Delete' });
+      fireEvent.click(deleteBtn);
+
+      const confirmDeleteBtn = screen.getByRole('dialog').querySelector('.modal-footer .btn-danger') as HTMLElement;
+
+      await act(async () => {
+        fireEvent.click(confirmDeleteBtn);
+      });
+
+      const errorAlert = screen.getByRole('alert');
+      expect(errorAlert).toBeInTheDocument();
+      expect(errorAlert).toHaveTextContent('Network error: failed to delete');
+      expect(screen.getByRole('dialog')).toBeInTheDocument();
     });
   });
 });

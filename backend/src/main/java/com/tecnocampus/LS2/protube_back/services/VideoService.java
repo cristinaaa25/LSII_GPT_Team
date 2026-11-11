@@ -29,6 +29,8 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -489,6 +491,65 @@ public class VideoService {
                 && videoLikeRepository != null
                 && videoLikeRepository.existsByVideoIdAndUserId(id, currentUser.getId());
         return toDetail(saved, commentRepository.countByVideoId(id), likedByMe);
+    }
+
+    /** Deletes the video and dependent rows. Files are deleted after transaction commit. Only the uploader may delete (404 before 403). */
+    @Transactional
+    public void deleteVideo(Long id, String username) {
+        if (id == null) {
+            throw new InvalidRequestException("Video id must not be null");
+        }
+        if (username == null || username.isBlank()) {
+            throw new BadCredentialsException("Authentication required");
+        }
+        Video video = videoRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("Video not found with id " + id));
+        if (video.getUploader() == null || !username.equals(video.getUploader().getUsername())) {
+            throw new ForbiddenException("Only the owner can delete this video");
+        }
+
+        String videoUrl = video.getVideoUrl();
+        String thumbnailUrl = video.getThumbnailUrl();
+
+        videoRepository.delete(video);
+
+        scheduleFileDeletion(videoUrl, thumbnailUrl);
+    }
+
+    private void scheduleFileDeletion(String videoUrl, String thumbnailUrl) {
+        Runnable deleteAction = () -> {
+            deleteStoreFile(videoUrl);
+            deleteStoreFile(thumbnailUrl);
+        };
+
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    deleteAction.run();
+                }
+            });
+        } else {
+            deleteAction.run();
+        }
+    }
+
+    void deleteStoreFile(String fileName) {
+        if (fileName == null || fileName.isBlank() || fileName.startsWith("http://") || fileName.startsWith("https://")) {
+            return;
+        }
+        String cleanName = fileName.startsWith("/media/") ? fileName.substring("/media/".length()) : fileName;
+        try {
+            Path filePath = Path.of(storeDir).resolve(cleanName).normalize();
+            if (Files.exists(filePath)) {
+                Files.delete(filePath);
+                LOG.info("Deleted video store file: {}", filePath);
+            } else {
+                LOG.warn("Video store file to delete not found: {}", filePath);
+            }
+        } catch (IOException e) {
+            LOG.warn("Failed to delete video store file: {} - {}", fileName, e.getMessage());
+        }
     }
 
     /** Trims each label and drops case-insensitive duplicates, keeping the first spelling and the order. */
