@@ -128,7 +128,7 @@ class VideoServiceTest {
                 new User("channel", "c@example.com", "!"));
         video.setId(7L);
         video.setViewCount(5L);
-        when(videoRepository.search("%cat%", PageRequest.of(1, 5)))
+        when(videoRepository.search("%cat%", "cat%", "% cat%", PageRequest.of(1, 5)))
                 .thenReturn(new PageImpl<>(List.of(video), PageRequest.of(1, 5), 6));
 
         PageDto<VideoSummaryDto> result = videoService.searchVideos("  CAT ", 1, 5);
@@ -139,7 +139,7 @@ class VideoServiceTest {
 
     @Test
     void searchVideosReturnsEmptyPageWhenNothingMatches() {
-        when(videoRepository.search("%zzz%", PageRequest.of(0, 12))).thenReturn(Page.empty(PageRequest.of(0, 12)));
+        when(videoRepository.search("%zzz%", "zzz%", "% zzz%", PageRequest.of(0, 12))).thenReturn(Page.empty(PageRequest.of(0, 12)));
 
         PageDto<VideoSummaryDto> result = videoService.searchVideos("zzz", 0, 12);
 
@@ -156,7 +156,7 @@ class VideoServiceTest {
 
         verify(videoRepository, times(2)).findAllBy(
                 PageRequest.of(0, 12, Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("id"))));
-        verify(videoRepository, never()).search(any(), any());
+        verify(videoRepository, never()).search(any(), any(), any(), any());
     }
 
     @Test
@@ -166,6 +166,16 @@ class VideoServiceTest {
         assertThatThrownBy(() -> videoService.searchVideos("", 0, 0))
                 .isInstanceOf(InvalidRequestException.class);
         verifyNoInteractions(videoRepository);
+    }
+
+    @Test
+    void searchVideosEscapesWildcardsInEveryPattern() {
+        when(videoRepository.search(any(), any(), any(), any())).thenReturn(Page.empty(PageRequest.of(0, 12)));
+
+        videoService.searchVideos(" 50%_Off\\ ", 0, 12);
+
+        verify(videoRepository).search("%50\\%\\_off\\\\%", "50\\%\\_off\\\\%", "% 50\\%\\_off\\\\%",
+                PageRequest.of(0, 12));
     }
 
     @Test

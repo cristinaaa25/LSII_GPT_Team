@@ -99,17 +99,23 @@ public class VideoService {
             return getVideos(page, size);
         }
         // The query already orders by relevance, so the page request must stay unsorted
-        return PageDto.from(videoRepository.search(toLikePattern(query), PageRequest.of(page, size))
+        String escaped = escapeLike(query);
+        return PageDto.from(videoRepository.search(toLikePattern(query), escaped + "%", "% " + escaped + "%",
+                        PageRequest.of(page, size))
                 .map(VideoService::toSummary));
     }
 
     /** Lower-cases the query, escapes LIKE wildcards so they match literally and wraps it in {@code %}. */
     static String toLikePattern(String query) {
-        String escaped = query.trim().toLowerCase(Locale.ROOT)
+        return "%" + escapeLike(query) + "%";
+    }
+
+    /** Trims and lower-cases the query and escapes {@code \}, {@code %} and {@code _} with a backslash. */
+    static String escapeLike(String query) {
+        return query.trim().toLowerCase(Locale.ROOT)
                 .replace("\\", "\\\\")
                 .replace("%", "\\%")
                 .replace("_", "\\_");
-        return "%" + escaped + "%";
     }
 
     static void validatePage(int page, int size) {
