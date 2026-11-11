@@ -11,7 +11,7 @@ public class IndexController {
     // React SPA client-side routes (/login, /videos/42...): any path without a dot outside /api serves index.html
     private static final String SPA_SEGMENT = "{path:^(?!api$)[^.]*}";
 
-    @GetMapping({"", "/", "/" + SPA_SEGMENT, "/" + SPA_SEGMENT + "/{subPath:[^.]*}"})
+    @GetMapping({"", "/", "/" + SPA_SEGMENT, "/" + SPA_SEGMENT + "/{subPath:[^.]*}", "/users/{username:.+}"})
     public ModelAndView home() {
         return new ModelAndView("index");
     }
