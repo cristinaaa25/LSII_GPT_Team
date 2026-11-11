@@ -1,15 +1,24 @@
 import React, { useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import GoogleLoginButton from './GoogleLoginButton';
+
+// Error codes the backend sends after a failed Google login (/login?error=<code>)
+const GOOGLE_ERRORS = new Map<string, string>([
+  ['google', 'Google sign-in failed. Please try again.'],
+  ['google_email_exists', 'An account with this email already exists. Sign in with your password.'],
+]);
 
 export const LoginPage: React.FC = () => {
   const { login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState<string | null>(null);
+  // Only known codes are shown: the query string itself is never rendered
+  const [error, setError] = useState<string | null>(GOOGLE_ERRORS.get(searchParams.get('error') ?? '') ?? null);
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -97,6 +106,8 @@ export const LoginPage: React.FC = () => {
                   {isLoading ? 'Logging in...' : 'Log In'}
                 </button>
               </form>
+
+              <GoogleLoginButton />
 
               <div className="text-center mt-3">
                 <span className="text-muted">Don&apos;t have an account? </span>

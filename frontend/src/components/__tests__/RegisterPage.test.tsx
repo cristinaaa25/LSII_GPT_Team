@@ -154,4 +154,13 @@ describe('RegisterPage', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Registration failed. Please check your details.');
   });
+
+  it('offers Google sign-up linking to the backend', () => {
+    renderRegisterPage();
+
+    expect(screen.getByRole('link', { name: /Continue with Google/i })).toHaveAttribute(
+      'href',
+      'http://api.test/oauth2/authorization/google'
+    );
+  });
 });

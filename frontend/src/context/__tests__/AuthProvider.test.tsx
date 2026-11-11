@@ -159,4 +159,41 @@ describe('AuthProvider', () => {
 
     expect(result.current.user).toEqual(dummyUser);
   });
+
+  it('signs in with a token from the Google callback after validating it', async () => {
+    mockedAuthService.getToken.mockReturnValue(null);
+    mockedAuthService.getMe.mockResolvedValueOnce(dummyUser);
+
+    const { result } = renderHook(() => useAuth(), {
+      wrapper: ({ children }) => <AuthProvider>{children}</AuthProvider>,
+    });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    await act(async () => {
+      await result.current.loginWithToken('google-jwt');
+    });
+
+    expect(mockedAuthService.getMe).toHaveBeenCalledWith('google-jwt');
+    expect(mockedAuthService.setToken).toHaveBeenCalledWith('google-jwt');
+    expect(result.current.token).toBe('google-jwt');
+    expect(result.current.user).toEqual(dummyUser);
+    expect(result.current.isAuthenticated).toBe(true);
+  });
+
+  it('does not keep a token from the Google callback that the backend rejects', async () => {
+    mockedAuthService.getToken.mockReturnValue(null);
+    mockedAuthService.getMe.mockRejectedValueOnce(new Error('401'));
+
+    const { result } = renderHook(() => useAuth(), {
+      wrapper: ({ children }) => <AuthProvider>{children}</AuthProvider>,
+    });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    await act(async () => {
+      await expect(result.current.loginWithToken('bad-jwt')).rejects.toThrow('401');
+    });
+
+    expect(mockedAuthService.setToken).not.toHaveBeenCalled();
+    expect(result.current.isAuthenticated).toBe(false);
+  });
 });

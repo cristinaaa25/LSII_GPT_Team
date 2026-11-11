@@ -86,7 +86,8 @@ public class AuthService {
                 .or(() -> userRepository.findByUsername(identifier))
                 .orElseThrow(() -> new BadCredentialsException("Invalid credentials"));
 
-        if (!passwordEncoder.matches(request.password(), user.getPassword())) {
+        // Accounts created through Google login have no password: same answer as a wrong password
+        if (user.getPassword() == null || !passwordEncoder.matches(request.password(), user.getPassword())) {
             throw new BadCredentialsException("Invalid credentials");
         }
 

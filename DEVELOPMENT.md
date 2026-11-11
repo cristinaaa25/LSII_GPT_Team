@@ -43,8 +43,9 @@ python3 main.py --store=/absolute/path/to/videos --id=10 --videos=../../resource
 | Variable                           | Needed for              | Description                                                                                      |
 |------------------------------------|-------------------------|--------------------------------------------------------------------------------------------------|
 | `ENV_PROTUBE_STORE_DIR`            | always                  | Absolute path of the video store folder. **End it with a path separator** (`/` or `\`) — it is used as a `file:` prefix to serve `/media/**`. |
-| `ENV_PROTUBE_GOOGLE_CLIENT_ID`     | Google OAuth login      | Google OAuth client id                                                                           |
-| `ENV_PROTUBE_GOOGLE_CLIENT_SECRET` | Google OAuth login      | Google OAuth client secret                                                                       |
+| `ENV_PROTUBE_GOOGLE_CLIENT_ID`     | Google login (optional) | Google OAuth client id. Defaults to a dummy value: the app starts, Google rejects the login      |
+| `ENV_PROTUBE_GOOGLE_CLIENT_SECRET` | Google login (optional) | Google OAuth client secret. Same dummy default                                                   |
+| `ENV_PROTUBE_FRONTEND_URL`         | optional (`dev` only)   | Where the backend sends the browser after Google login. Defaults to `http://localhost:5173`      |
 | `ENV_PROTUBE_DB_USER`              | `dev` and `prod`        | PostgreSQL database user                                                                         |
 | `ENV_PROTUBE_DB_PASS`              | `dev` and `prod`        | PostgreSQL database password                                                                     |
 | `ENV_PROTUBE_DB`                   | `dev` and `prod`        | PostgreSQL database name (see [Using PostgreSQL](#using-postgresql))                              |
@@ -61,6 +62,30 @@ export ENV_PROTUBE_STORE_DIR=/home/me/protube/videos/
 # Windows PowerShell (current session)
 $env:ENV_PROTUBE_STORE_DIR = "D:\code\videos\"
 ```
+
+### Google login (optional)
+
+"Continue with Google" on `/login` and `/register` works only with a real OAuth client; without one everything
+else works and the button ends in a Google error page.
+
+1. In Google Cloud Console → *APIs & Services* → *Credentials*, create an **OAuth client ID** of type
+   *Web application* and add this **Authorized redirect URI** (the backend runs on 8080 in Docker and in dev):
+   ```
+   http://localhost:8080/login/oauth2/code/google
+   ```
+   No JavaScript origins are needed: the whole flow runs through the backend.
+2. Put the id and secret **only** in your local `.env` (git-ignored) or your local run configuration, never in
+   code, tests, prompts, docs or commits:
+   ```
+   ENV_PROTUBE_GOOGLE_CLIENT_ID=<your client id>
+   ENV_PROTUBE_GOOGLE_CLIENT_SECRET=<your client secret>
+   ```
+3. Restart the backend (`docker compose up -d` recreates the container with the new values).
+
+Flow: `/oauth2/authorization/google` (backend) → Google → `/login/oauth2/code/google` (backend) → the backend
+finds the user by Google id or creates one without password, and redirects to the SPA route
+`/auth/callback#token=<our JWT>`. A Google email that already belongs to a password account is **not** linked
+(local emails are not verified): the user lands on `/login?error=google_email_exists`. Tests never contact Google.
 
 ## 3. Development mode
 

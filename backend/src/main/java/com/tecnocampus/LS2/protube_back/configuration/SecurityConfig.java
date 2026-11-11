@@ -2,6 +2,8 @@ package com.tecnocampus.LS2.protube_back.configuration;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tecnocampus.LS2.protube_back.security.JwtAuthenticationFilter;
+import com.tecnocampus.LS2.protube_back.security.OAuth2LoginFailureHandler;
+import com.tecnocampus.LS2.protube_back.security.OAuth2LoginSuccessHandler;
 import com.tecnocampus.LS2.protube_back.security.RestAuthenticationEntryPoint;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
@@ -31,14 +33,20 @@ public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final RestAuthenticationEntryPoint restAuthenticationEntryPoint;
     private final ObjectMapper objectMapper;
+    private final OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler;
+    private final OAuth2LoginFailureHandler oAuth2LoginFailureHandler;
 
     public SecurityConfig(
             @Autowired(required = false) JwtAuthenticationFilter jwtAuthenticationFilter,
             @Autowired(required = false) RestAuthenticationEntryPoint restAuthenticationEntryPoint,
-            @Autowired(required = false) ObjectMapper objectMapper) {
+            @Autowired(required = false) ObjectMapper objectMapper,
+            @Autowired(required = false) OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler,
+            @Autowired(required = false) OAuth2LoginFailureHandler oAuth2LoginFailureHandler) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
         this.restAuthenticationEntryPoint = restAuthenticationEntryPoint;
         this.objectMapper = objectMapper != null ? objectMapper : new ObjectMapper();
+        this.oAuth2LoginSuccessHandler = oAuth2LoginSuccessHandler;
+        this.oAuth2LoginFailureHandler = oAuth2LoginFailureHandler;
     }
 
     @Bean
@@ -69,6 +77,17 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/**").permitAll()
                         .anyRequest().authenticated()
                 );
+
+        // Google login: /oauth2/authorization/google starts it, /login/oauth2/code/google is Google's callback.
+        // The handlers are missing only in @WebMvcTest slices that do not import them.
+        if (oAuth2LoginSuccessHandler != null && oAuth2LoginFailureHandler != null) {
+            http.oauth2Login(oauth2 -> oauth2
+                    // The SPA owns GET /login: a custom login page stops Spring from generating its own there
+                    .loginPage("/login")
+                    .successHandler(oAuth2LoginSuccessHandler)
+                    .failureHandler(oAuth2LoginFailureHandler)
+            );
+        }
 
         if (jwtAuthenticationFilter != null) {
             http.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);

@@ -11,6 +11,7 @@ describe('Header', () => {
     isLoading: false,
     login: jest.fn(),
     register: jest.fn(),
+    loginWithToken: jest.fn(),
     logout: jest.fn(),
     ...overrides,
   });
