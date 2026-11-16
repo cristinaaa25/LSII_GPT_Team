@@ -4,6 +4,7 @@ import com.tecnocampus.LS2.protube_back.domain.User;
 import com.tecnocampus.LS2.protube_back.domain.Video;
 import com.tecnocampus.LS2.protube_back.domain.VideoLike;
 import com.tecnocampus.LS2.protube_back.domain.VideoView;
+import com.tecnocampus.LS2.protube_back.dto.CategoryCountDto;
 import com.tecnocampus.LS2.protube_back.dto.PageDto;
 import com.tecnocampus.LS2.protube_back.dto.VideoDetailDto;
 import com.tecnocampus.LS2.protube_back.dto.VideoLikeDto;
@@ -22,6 +23,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -70,6 +72,9 @@ public class VideoService {
             "image/webp", ".webp");
 
     static final Sort NEWEST_FIRST = Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("id"));
+    static final Sort OLDEST_FIRST = Sort.by(Sort.Order.asc("createdAt"), Sort.Order.asc("id"));
+    static final Sort VIEWS_FIRST = Sort.by(Sort.Order.desc("viewCount"), Sort.Order.desc("id"));
+    static final Sort LIKES_FIRST = Sort.by(Sort.Order.desc("likeCount"), Sort.Order.desc("id"));
 
     private final VideoRepository videoRepository;
     private final CommentRepository commentRepository;
@@ -103,11 +108,43 @@ public class VideoService {
         this(videoRepository, commentRepository, videoViewRepository, null, userRepository, storeDir);
     }
 
+    static Sort resolveSort(String sort) {
+        if (sort == null || sort.isBlank() || sort.equalsIgnoreCase("newest")) {
+            return NEWEST_FIRST;
+        }
+        String normalized = sort.trim().toLowerCase(Locale.ROOT);
+        return switch (normalized) {
+            case "oldest" -> OLDEST_FIRST;
+            case "views" -> VIEWS_FIRST;
+            case "likes" -> LIKES_FIRST;
+            default -> throw new InvalidRequestException("Unknown sort: " + sort);
+        };
+    }
+
     @Transactional(readOnly = true)
     public PageDto<VideoSummaryDto> getVideos(int page, int size) {
+        return getVideos(page, size, null, "newest");
+    }
+
+    @Transactional(readOnly = true)
+    public PageDto<VideoSummaryDto> getVideos(int page, int size, String category, String sort) {
         validatePage(page, size);
-        return PageDto.from(videoRepository.findAllBy(PageRequest.of(page, size, NEWEST_FIRST))
-                .map(VideoService::toSummary));
+        Sort sortOrder = resolveSort(sort);
+        PageRequest pageRequest = PageRequest.of(page, size, sortOrder);
+        Page<Video> videoPage;
+        if (category == null || category.isBlank()) {
+            videoPage = videoRepository.findAllBy(pageRequest);
+        } else {
+            videoPage = videoRepository.findByCategoryIgnoreCase(category.trim(), pageRequest);
+        }
+        return PageDto.from(videoPage.map(VideoService::toSummary));
+    }
+
+    @Transactional(readOnly = true)
+    public List<CategoryCountDto> getCategories() {
+        return videoRepository.findCategoryCounts().stream()
+                .map(row -> new CategoryCountDto((String) row[0], ((Number) row[1]).longValue()))
+                .toList();
     }
 
     /** Ranked search over title, tags and description; a blank query returns the whole catalog. */

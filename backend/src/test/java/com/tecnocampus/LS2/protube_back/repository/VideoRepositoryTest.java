@@ -162,6 +162,63 @@ class VideoRepositoryTest {
     }
 
     @Test
+    void findByCategoryIgnoreCaseMatchesCaseInsensitivelyAndPaginates() {
+        Video v1 = new Video("Gaming Video", "desc", "v1.mp4", "v1.webp", 10.0, 640, 360, uploader);
+        v1.setCategories(new ArrayList<>(List.of("Gaming", "Action")));
+        entityManager.persist(v1);
+
+        Video v2 = new Video("Music Video", "desc", "v2.mp4", "v2.webp", 10.0, 640, 360, uploader);
+        v2.setCategories(new ArrayList<>(List.of("music")));
+        entityManager.persist(v2);
+
+        Video v3 = new Video("Another Gaming", "desc", "v3.mp4", "v3.webp", 10.0, 640, 360, uploader);
+        v3.setCategories(new ArrayList<>(List.of("GAMING")));
+        entityManager.persist(v3);
+
+        entityManager.flush();
+
+        Page<Video> gamingResults = videoRepository.findByCategoryIgnoreCase("gaming", PageRequest.of(0, 10));
+        assertThat(gamingResults.getContent()).extracting(Video::getTitle)
+                .containsExactlyInAnyOrder("Gaming Video", "Another Gaming");
+
+        Page<Video> musicResults = videoRepository.findByCategoryIgnoreCase("MUSIC", PageRequest.of(0, 10));
+        assertThat(musicResults.getContent()).extracting(Video::getTitle)
+                .containsExactly("Music Video");
+
+        Page<Video> emptyResults = videoRepository.findByCategoryIgnoreCase("sports", PageRequest.of(0, 10));
+        assertThat(emptyResults.getContent()).isEmpty();
+    }
+
+    @Test
+    void findCategoryCountsReturnsDistinctCategoriesOrderedByCountDescThenNameAsc() {
+        Video v1 = new Video("V1", "desc", "v1.mp4", "v1.webp", 10.0, 640, 360, uploader);
+        v1.setCategories(new ArrayList<>(List.of("Gaming", "Tech")));
+        entityManager.persist(v1);
+
+        Video v2 = new Video("V2", "desc", "v2.mp4", "v2.webp", 10.0, 640, 360, uploader);
+        v2.setCategories(new ArrayList<>(List.of("Gaming", "Music")));
+        entityManager.persist(v2);
+
+        Video v3 = new Video("V3", "desc", "v3.mp4", "v3.webp", 10.0, 640, 360, uploader);
+        v3.setCategories(new ArrayList<>(List.of("Gaming")));
+        entityManager.persist(v3);
+
+        entityManager.flush();
+
+        List<Object[]> counts = videoRepository.findCategoryCounts();
+        assertThat(counts).hasSize(3);
+        // Gaming has 3 videos, Music and Tech have 1 video each. Music < Tech alphabetically
+        assertThat(counts.get(0)[0]).isEqualTo("Gaming");
+        assertThat(((Number) counts.get(0)[1]).longValue()).isEqualTo(3L);
+
+        assertThat(counts.get(1)[0]).isEqualTo("Music");
+        assertThat(((Number) counts.get(1)[1]).longValue()).isEqualTo(1L);
+
+        assertThat(counts.get(2)[0]).isEqualTo("Tech");
+        assertThat(((Number) counts.get(2)[1]).longValue()).isEqualTo(1L);
+    }
+
+    @Test
     void testVideoSettersAndConstructors() {
         Video video = new Video("Basic Title", "http://media/basic.mp4", uploader);
         video.setTitle("Updated Title");

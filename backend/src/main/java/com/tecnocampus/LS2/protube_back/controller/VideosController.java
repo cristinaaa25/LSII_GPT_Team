@@ -1,5 +1,6 @@
 package com.tecnocampus.LS2.protube_back.controller;
 
+import com.tecnocampus.LS2.protube_back.dto.CategoryCountDto;
 import com.tecnocampus.LS2.protube_back.dto.PageDto;
 import com.tecnocampus.LS2.protube_back.dto.VideoDetailDto;
 import com.tecnocampus.LS2.protube_back.dto.VideoLikeDto;
@@ -39,8 +40,15 @@ public class VideosController {
     @GetMapping("")
     public ResponseEntity<PageDto<VideoSummaryDto>> getVideos(
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "12") int size) {
-        return ResponseEntity.ok(videoService.getVideos(page, size));
+            @RequestParam(defaultValue = "12") int size,
+            @RequestParam(required = false) String category,
+            @RequestParam(defaultValue = "newest") String sort) {
+        return ResponseEntity.ok(videoService.getVideos(page, size, category, sort));
+    }
+
+    @GetMapping("/categories")
+    public ResponseEntity<List<CategoryCountDto>> getCategories() {
+        return ResponseEntity.ok(videoService.getCategories());
     }
 
     @GetMapping("/search")
