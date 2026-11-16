@@ -1,6 +1,7 @@
 package com.tecnocampus.LS2.protube_back.controller;
 
 import com.tecnocampus.LS2.protube_back.configuration.SecurityConfig;
+import com.tecnocampus.LS2.protube_back.dto.CategoryCountDto;
 import com.tecnocampus.LS2.protube_back.dto.PageDto;
 import com.tecnocampus.LS2.protube_back.dto.VideoDetailDto;
 import com.tecnocampus.LS2.protube_back.dto.VideoLikeDto;
@@ -57,7 +58,7 @@ class VideosControllerTest {
     @Test
     void getVideosReturnsRequestedPage() throws Exception {
         var video = new VideoSummaryDto(7L, "Cats", "channel", 30.5, 1200L, "42.webp");
-        when(videoService.getVideos(1, 5)).thenReturn(new PageDto<>(List.of(video), 1, 5, 6, 2, true));
+        when(videoService.getVideos(1, 5, null, "newest")).thenReturn(new PageDto<>(List.of(video), 1, 5, 6, 2, true));
 
         mockMvc.perform(get("/api/videos").param("page", "1").param("size", "5"))
                 .andExpect(status().isOk())
@@ -76,22 +77,67 @@ class VideosControllerTest {
 
     @Test
     void getVideosUsesDefaultPagination() throws Exception {
-        when(videoService.getVideos(0, 12)).thenReturn(new PageDto<>(List.of(), 0, 12, 0, 0, true));
+        when(videoService.getVideos(0, 12, null, "newest")).thenReturn(new PageDto<>(List.of(), 0, 12, 0, 0, true));
 
         mockMvc.perform(get("/api/videos"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content").isEmpty());
 
-        verify(videoService).getVideos(0, 12);
+        verify(videoService).getVideos(0, 12, null, "newest");
     }
 
     @Test
     void getVideosReturnsBadRequestForInvalidPagination() throws Exception {
-        when(videoService.getVideos(-1, 12)).thenThrow(new InvalidRequestException("page must be >= 0"));
+        when(videoService.getVideos(-1, 12, null, "newest")).thenThrow(new InvalidRequestException("page must be >= 0"));
 
         mockMvc.perform(get("/api/videos").param("page", "-1"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.detail").value("page must be >= 0"));
+    }
+
+    @Test
+    void getVideosForwardsCategoryAndSort() throws Exception {
+        var video = new VideoSummaryDto(10L, "Gameplay", "gamer", 120.0, 5000L, "thumb.webp");
+        when(videoService.getVideos(0, 12, "Gaming", "views"))
+                .thenReturn(new PageDto<>(List.of(video), 0, 12, 1, 1, true));
+
+        mockMvc.perform(get("/api/videos")
+                        .param("category", "Gaming")
+                        .param("sort", "views"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].id").value(10))
+                .andExpect(jsonPath("$.content[0].title").value("Gameplay"));
+
+        verify(videoService).getVideos(0, 12, "Gaming", "views");
+    }
+
+    @Test
+    void getVideosReturnsBadRequestForUnknownSort() throws Exception {
+        when(videoService.getVideos(0, 12, null, "invalid"))
+                .thenThrow(new InvalidRequestException("Unknown sort: invalid"));
+
+        mockMvc.perform(get("/api/videos").param("sort", "invalid"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.detail").value("Unknown sort: invalid"));
+    }
+
+    @Test
+    void getCategoriesReturnsListOfCategoryCounts() throws Exception {
+        when(videoService.getCategories()).thenReturn(List.of(
+                new CategoryCountDto("Gaming", 10),
+                new CategoryCountDto("Music", 5)
+        ));
+
+        mockMvc.perform(get("/api/videos/categories"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].name").value("Gaming"))
+                .andExpect(jsonPath("$[0].count").value(10))
+                .andExpect(jsonPath("$[0].category").value("Gaming"))
+                .andExpect(jsonPath("$[1].name").value("Music"))
+                .andExpect(jsonPath("$[1].count").value(5))
+                .andExpect(jsonPath("$[1].category").value("Music"));
+
+        verify(videoService).getCategories();
     }
 
     @Test

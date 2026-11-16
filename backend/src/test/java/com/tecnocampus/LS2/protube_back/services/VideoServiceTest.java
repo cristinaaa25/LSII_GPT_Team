@@ -4,6 +4,7 @@ import com.tecnocampus.LS2.protube_back.domain.User;
 import com.tecnocampus.LS2.protube_back.domain.Video;
 import com.tecnocampus.LS2.protube_back.domain.VideoLike;
 import com.tecnocampus.LS2.protube_back.domain.VideoView;
+import com.tecnocampus.LS2.protube_back.dto.CategoryCountDto;
 import com.tecnocampus.LS2.protube_back.dto.PageDto;
 import com.tecnocampus.LS2.protube_back.dto.VideoDetailDto;
 import com.tecnocampus.LS2.protube_back.dto.VideoLikeDto;
@@ -48,6 +49,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -110,6 +112,84 @@ class VideoServiceTest {
         verify(videoRepository).findAllBy(captor.capture());
         assertThat(captor.getValue()).isEqualTo(
                 PageRequest.of(0, 12, Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("id"))));
+    }
+
+    @Test
+    void getVideosSortsOldestFirst() {
+        when(videoRepository.findAllBy(any(Pageable.class))).thenReturn(new PageImpl<>(List.of()));
+
+        videoService.getVideos(0, 12, null, "oldest");
+
+        ArgumentCaptor<Pageable> captor = ArgumentCaptor.forClass(Pageable.class);
+        verify(videoRepository).findAllBy(captor.capture());
+        assertThat(captor.getValue()).isEqualTo(
+                PageRequest.of(0, 12, Sort.by(Sort.Order.asc("createdAt"), Sort.Order.asc("id"))));
+    }
+
+    @Test
+    void getVideosSortsViewsFirst() {
+        when(videoRepository.findAllBy(any(Pageable.class))).thenReturn(new PageImpl<>(List.of()));
+
+        videoService.getVideos(0, 12, null, "views");
+
+        ArgumentCaptor<Pageable> captor = ArgumentCaptor.forClass(Pageable.class);
+        verify(videoRepository).findAllBy(captor.capture());
+        assertThat(captor.getValue()).isEqualTo(
+                PageRequest.of(0, 12, Sort.by(Sort.Order.desc("viewCount"), Sort.Order.desc("id"))));
+    }
+
+    @Test
+    void getVideosSortsLikesFirst() {
+        when(videoRepository.findAllBy(any(Pageable.class))).thenReturn(new PageImpl<>(List.of()));
+
+        videoService.getVideos(0, 12, null, "likes");
+
+        ArgumentCaptor<Pageable> captor = ArgumentCaptor.forClass(Pageable.class);
+        verify(videoRepository).findAllBy(captor.capture());
+        assertThat(captor.getValue()).isEqualTo(
+                PageRequest.of(0, 12, Sort.by(Sort.Order.desc("likeCount"), Sort.Order.desc("id"))));
+    }
+
+    @Test
+    void getVideosRejectsUnknownSort() {
+        assertThatThrownBy(() -> videoService.getVideos(0, 12, null, "invalid"))
+                .isInstanceOf(InvalidRequestException.class)
+                .hasMessageContaining("Unknown sort: invalid");
+        verifyNoInteractions(videoRepository);
+    }
+
+    @Test
+    void getVideosFiltersByCategoryIgnoreCase() {
+        User author = new User("channel", "c@example.com", "!");
+        Video video = new Video("Music Video", "desc", "1.mp4", "1.webp", 180.0, 1920, 1080, author);
+        video.setId(10L);
+        when(videoRepository.findByCategoryIgnoreCase(eq("music"), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(video), PageRequest.of(0, 12), 1));
+
+        PageDto<VideoSummaryDto> result = videoService.getVideos(0, 12, "  music  ", "newest");
+
+        assertThat(result.content()).hasSize(1);
+        assertThat(result.content().get(0).id()).isEqualTo(10L);
+        ArgumentCaptor<Pageable> captor = ArgumentCaptor.forClass(Pageable.class);
+        verify(videoRepository).findByCategoryIgnoreCase(eq("music"), captor.capture());
+        assertThat(captor.getValue().getSort()).isEqualTo(
+                Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("id")));
+    }
+
+    @Test
+    void getCategoriesMapsRepositoryCounts() {
+        List<Object[]> rawCounts = new ArrayList<>();
+        rawCounts.add(new Object[]{"Gaming", 10L});
+        rawCounts.add(new Object[]{"Music", 5L});
+        when(videoRepository.findCategoryCounts()).thenReturn(rawCounts);
+
+        List<CategoryCountDto> categories = videoService.getCategories();
+
+        assertThat(categories).containsExactly(
+                new CategoryCountDto("Gaming", 10L),
+                new CategoryCountDto("Music", 5L)
+        );
+        verify(videoRepository).findCategoryCounts();
     }
 
     @Test

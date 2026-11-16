@@ -182,4 +182,19 @@ describe('videoService', () => {
       });
     });
   });
+
+  describe('getCategories', () => {
+    it('fetches categories with video counts', async () => {
+      const mockCategories = [
+        { name: 'Gaming', count: 12 },
+        { name: 'Music', count: 8 },
+      ];
+      mockedAxios.get.mockResolvedValueOnce({ data: mockCategories });
+
+      const result = await videoService.getCategories();
+
+      expect(result).toEqual(mockCategories);
+      expect(mockedAxios.get).toHaveBeenCalledWith('other/videos/categories');
+    });
+  });
 });

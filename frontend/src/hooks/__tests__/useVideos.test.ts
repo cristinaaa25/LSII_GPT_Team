@@ -101,4 +101,62 @@ describe('useVideos', () => {
     expect(result.current.error).toBe('Network error');
     expect(result.current.videos).toEqual([]);
   });
+
+  it('fetches videos with category and sort parameters', async () => {
+    const mockPage = {
+      content: [{ id: 10, title: 'Epic Play', author: 'pro', duration: 120, views: 50, thumbnail: null }],
+      page: 0,
+      size: 12,
+      totalElements: 1,
+      totalPages: 1,
+      last: true,
+    };
+    mockedAxios.get.mockResolvedValueOnce({ data: mockPage });
+
+    const { result } = renderHook(() => useVideos(12, undefined, 'Gaming', 'views'));
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.videos).toHaveLength(1);
+    expect(result.current.videos[0].title).toBe('Epic Play');
+    expect(mockedAxios.get).toHaveBeenCalledWith('other/videos', {
+      params: { page: 0, size: 12, category: 'Gaming', sort: 'views' },
+    });
+  });
+
+  it('restarts infinite scroll when category or sort changes', async () => {
+    const pageGaming = {
+      content: [{ id: 1, title: 'Gaming Vid', author: 'u1', duration: 10, views: 1, thumbnail: null }],
+      page: 0,
+      size: 12,
+      totalElements: 1,
+      totalPages: 1,
+      last: true,
+    };
+    const pageMusic = {
+      content: [{ id: 2, title: 'Music Track', author: 'u2', duration: 200, views: 99, thumbnail: null }],
+      page: 0,
+      size: 12,
+      totalElements: 1,
+      totalPages: 1,
+      last: true,
+    };
+    mockedAxios.get.mockResolvedValueOnce({ data: pageGaming }).mockResolvedValueOnce({ data: pageMusic });
+
+    let currentCategory = 'Gaming';
+    const { result, rerender } = renderHook(() => useVideos(12, undefined, currentCategory, 'newest'));
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.videos[0].title).toBe('Gaming Vid');
+
+    // Change category
+    currentCategory = 'Music';
+    rerender();
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.videos[0].title).toBe('Music Track');
+    expect(mockedAxios.get).toHaveBeenLastCalledWith('other/videos', {
+      params: { page: 0, size: 12, category: 'Music', sort: 'newest' },
+    });
+  });
 });

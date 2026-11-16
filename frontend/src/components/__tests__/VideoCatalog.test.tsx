@@ -2,10 +2,18 @@ import { act, fireEvent, render, screen } from '@testing-library/react';
 import axios from 'axios';
 import { MemoryRouter } from 'react-router-dom';
 import VideoCatalog from '../VideoCatalog';
+import { videoService } from '../../services/videoService';
 import type { Page, VideoSummary } from '../../types/video';
 
 jest.mock('axios', () => ({ __esModule: true, default: { get: jest.fn() } }));
 const mockedGet = axios.get as jest.Mock;
+
+jest.mock('../../services/videoService', () => ({
+  videoService: {
+    getCategories: jest.fn(),
+  },
+}));
+const mockedGetCategories = videoService.getCategories as jest.Mock;
 
 const video = (id: number): VideoSummary => ({
   id,
@@ -30,10 +38,13 @@ const page = (ids: number[], pageNumber: number, last: boolean): { data: Page<Vi
 describe('VideoCatalog', () => {
   beforeEach(() => {
     mockedGet.mockReset();
+    mockedGetCategories.mockReset();
+    mockedGetCategories.mockResolvedValue([]);
   });
 
   it('shows a loading indicator while the first page loads', async () => {
     mockedGet.mockReturnValue(new Promise(() => {}));
+    mockedGetCategories.mockReturnValue(new Promise(() => {}));
 
     render(
       <MemoryRouter>
@@ -147,5 +158,81 @@ describe('VideoCatalog', () => {
     );
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Unknown error');
+  });
+
+  it('renders category chips and sort select above the catalog', async () => {
+    mockedGetCategories.mockResolvedValueOnce([
+      { name: 'Gaming', count: 12 },
+      { name: 'Music', count: 5 },
+    ]);
+    mockedGet.mockResolvedValueOnce(page([1], 0, true));
+
+    render(
+      <MemoryRouter>
+        <VideoCatalog />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByRole('button', { name: 'All' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: /Gaming\s+12/ })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: /Music\s+5/ })).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Sort videos' })).toHaveValue('newest');
+  });
+
+  it('updates url and restarts infinite scroll when category chip is clicked', async () => {
+    mockedGetCategories.mockResolvedValue([{ name: 'Gaming', count: 12 }]);
+    mockedGet.mockResolvedValueOnce(page([1], 0, true)).mockResolvedValueOnce(page([2], 0, true));
+
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <VideoCatalog />
+      </MemoryRouter>
+    );
+
+    await screen.findByRole('heading', { name: 'Video 1' });
+    fireEvent.click(await screen.findByRole('button', { name: /Gaming\s+12/ }));
+
+    expect(await screen.findByRole('heading', { name: 'Video 2' })).toBeInTheDocument();
+    expect(mockedGet).toHaveBeenLastCalledWith('other/videos', {
+      params: { page: 0, size: 12, category: 'Gaming' },
+    });
+  });
+
+  it('updates url and restarts infinite scroll when sort is changed', async () => {
+    mockedGetCategories.mockResolvedValue([]);
+    mockedGet.mockResolvedValueOnce(page([1], 0, true)).mockResolvedValueOnce(page([3], 0, true));
+
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <VideoCatalog />
+      </MemoryRouter>
+    );
+
+    await screen.findByRole('heading', { name: 'Video 1' });
+    fireEvent.change(screen.getByRole('combobox', { name: 'Sort videos' }), {
+      target: { value: 'views' },
+    });
+
+    expect(await screen.findByRole('heading', { name: 'Video 3' })).toBeInTheDocument();
+    expect(mockedGet).toHaveBeenLastCalledWith('other/videos', {
+      params: { page: 0, size: 12, sort: 'views' },
+    });
+  });
+
+  it('loads initial state from URL query parameters', async () => {
+    mockedGetCategories.mockResolvedValue([{ name: 'Music', count: 5 }]);
+    mockedGet.mockResolvedValueOnce(page([5], 0, true));
+
+    render(
+      <MemoryRouter initialEntries={['/?category=Music&sort=views']}>
+        <VideoCatalog />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByRole('heading', { name: 'Video 5' })).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Sort videos' })).toHaveValue('views');
+    expect(mockedGet).toHaveBeenCalledWith('other/videos', {
+      params: { page: 0, size: 12, category: 'Music', sort: 'views' },
+    });
   });
 });

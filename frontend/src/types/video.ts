@@ -31,6 +31,13 @@ export interface VideoLikeResponse {
   likedByMe: boolean;
 }
 
+/** Distinct category with video count returned by GET /api/videos/categories. */
+export interface CategoryCount {
+  name: string;
+  count: number;
+  category?: string;
+}
+
 /** Body of PUT /api/videos/:id (backend VideoUpdateRequestDto). */
 export interface VideoUpdatePayload {
   title: string;

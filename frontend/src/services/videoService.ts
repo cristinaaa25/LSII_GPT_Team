@@ -1,7 +1,7 @@
 import axios, { AxiosProgressEvent } from 'axios';
 import { getEnv } from '../utils/Env';
 import { authService } from './authService';
-import type { VideoDetail, VideoLikeResponse, VideoUpdatePayload } from '../types/video';
+import type { CategoryCount, VideoDetail, VideoLikeResponse, VideoUpdatePayload } from '../types/video';
 
 export interface UploadVideoPayload {
   file: File;
@@ -86,5 +86,10 @@ export const videoService = {
     }
 
     await axios.delete(`${getEnv().API_BASE_URL}/videos/${id}`, { headers });
+  },
+
+  getCategories: async (): Promise<CategoryCount[]> => {
+    const res = await axios.get<CategoryCount[]>(`${getEnv().API_BASE_URL}/videos/categories`);
+    return res.data;
   },
 };

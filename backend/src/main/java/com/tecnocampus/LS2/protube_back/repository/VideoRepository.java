@@ -27,6 +27,27 @@ public interface VideoRepository extends JpaRepository<Video, Long> {
     @EntityGraph(attributePaths = "uploader")
     Page<Video> findAllBy(Pageable pageable);
 
+    @EntityGraph(attributePaths = "uploader")
+    @Query(value = """
+            SELECT v FROM Video v
+            WHERE EXISTS (SELECT 1 FROM Video v2 JOIN v2.categories c
+                          WHERE v2 = v AND LOWER(c) = LOWER(:category))
+            """,
+            countQuery = """
+            SELECT COUNT(v) FROM Video v
+            WHERE EXISTS (SELECT 1 FROM Video v2 JOIN v2.categories c
+                          WHERE v2 = v AND LOWER(c) = LOWER(:category))
+            """)
+    Page<Video> findByCategoryIgnoreCase(@Param("category") String category, Pageable pageable);
+
+    @Query("""
+            SELECT c, COUNT(DISTINCT v.id)
+            FROM Video v JOIN v.categories c
+            GROUP BY c
+            ORDER BY COUNT(DISTINCT v.id) DESC, c ASC
+            """)
+    List<Object[]> findCategoryCounts();
+
     /**
      * Case-insensitive search over title, tags and description, ranked by where the match is.
      * <p>
