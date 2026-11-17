@@ -9,8 +9,7 @@ class IndexControllerTest {
 
     @Test
     void home() {
-
-        assertEquals("index", indexController.home().getViewName());
+        assertEquals("index", indexController.home(null, null).getViewName());
     }
 
     @Test

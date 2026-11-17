@@ -3,6 +3,7 @@
 .run/
 .videos/
 videos/
+node_modules/
 # Personal AI tool settings (not shared)
 .claude/settings.local.json
 

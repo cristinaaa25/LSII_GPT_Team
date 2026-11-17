@@ -87,7 +87,18 @@ finds the user by Google id or creates one without password, and redirects to th
 `/auth/callback#token=<our JWT>`. A Google email that already belongs to a password account is **not** linked
 (local emails are not verified): the user lands on `/login?error=google_email_exists`. Tests never contact Google.
 
-## 3. Development mode
+## 3. Swagger UI and API docs
+
+SpringDoc exposes the OpenAPI docs and the interactive Swagger UI without login so the docs are reachable in Docker on the same host as the backend:
+
+```text
+http://localhost:8080/swagger-ui.html
+http://localhost:8080/v3/api-docs
+```
+
+The UI includes the JWT bearer authorization flow. Use the token returned by `/api/auth/login` in the `Authorize` button.
+
+## 4. Development mode
 
 In development the backend and frontend run as two separate processes:
 
