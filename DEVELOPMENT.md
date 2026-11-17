@@ -108,6 +108,15 @@ mvn spring-boot:run
   environment variables to point to your own store folder.
 * CORS is open for `/api/**` and `/auth/**`, so the Vite dev server can call the API directly.
 
+### API documentation (Swagger UI)
+
+SpringDoc exposes interactive API documentation reachable without login (both locally in dev and in Docker at port 8080):
+
+* **Swagger UI:** [http://localhost:8080/swagger-ui.html](http://localhost:8080/swagger-ui.html)
+* **OpenAPI specification:** [http://localhost:8080/v3/api-docs](http://localhost:8080/v3/api-docs)
+
+To test authenticated endpoints in Swagger UI, click the **Authorize** button at the top right and enter the JWT bearer token returned by `POST /api/auth/login`.
+
 ### Frontend
 
 ```bash
