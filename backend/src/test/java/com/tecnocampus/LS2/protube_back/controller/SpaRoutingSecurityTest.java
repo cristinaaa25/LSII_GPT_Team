@@ -43,6 +43,14 @@ class SpaRoutingSecurityTest {
     }
 
     @ParameterizedTest
+    @ValueSource(strings = {"/v3/api-docs", "/swagger-ui.html", "/swagger-ui/index.html"})
+    void swaggerAndApiDocsAreNotInterceptedBySpaRouting(String path) throws Exception {
+        // Not handled by IndexController: 404 proves it got past Spring Security without serving index.html
+        mockMvc.perform(get(path))
+                .andExpect(status().isNotFound());
+    }
+
+    @ParameterizedTest
     @ValueSource(strings = {"/api/unknown", "/api/auth/me"})
     void apiStillRequiresAuthentication(String path) throws Exception {
         mockMvc.perform(get(path))

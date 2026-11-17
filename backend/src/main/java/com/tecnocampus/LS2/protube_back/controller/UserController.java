@@ -9,6 +9,7 @@ import com.tecnocampus.LS2.protube_back.dto.VideoSummaryDto;
 import com.tecnocampus.LS2.protube_back.services.AnalyticsService;
 import com.tecnocampus.LS2.protube_back.services.UserService;
 import jakarta.validation.Valid;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.web.bind.annotation.*;
@@ -54,7 +55,7 @@ public class UserController {
         return ResponseEntity.ok(userService.updateOwnProfile(principal.getName(), request));
     }
 
-    @PostMapping("/me/avatar")
+    @PostMapping(value = "/me/avatar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<UserDto> uploadAvatar(
             @RequestParam(value = "avatar", required = false) MultipartFile avatar,
             Principal principal) {

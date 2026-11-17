@@ -72,6 +72,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/videos/*/views").permitAll()
                         .requestMatchers("/media/**").permitAll()
                         .requestMatchers("/error").permitAll()
+                        .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs", "/v3/api-docs/**").permitAll()
                         .requestMatchers("/api/**").authenticated()
                         // SPA: static files (/assets/**) and client-side routes (/login, /register...)
                         .requestMatchers(HttpMethod.GET, "/**").permitAll()
