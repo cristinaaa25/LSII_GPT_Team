@@ -52,6 +52,19 @@ public class CommentController {
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 
+    @PutMapping("/comments/{id}")
+    public ResponseEntity<CommentDto> updateComment(
+            @PathVariable Long id,
+            @Valid @RequestBody CommentRequestDto request) {
+        return ResponseEntity.ok(commentService.updateComment(id, request));
+    }
+
+    @DeleteMapping("/comments/{id}")
+    public ResponseEntity<Void> deleteComment(@PathVariable Long id) {
+        commentService.deleteComment(id);
+        return ResponseEntity.noContent().build();
+    }
+
     @PutMapping("/comments/{id}/like")
     public ResponseEntity<CommentLikeDto> likeComment(@PathVariable Long id) {
         return ResponseEntity.ok(commentService.likeComment(id));

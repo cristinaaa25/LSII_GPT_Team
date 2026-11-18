@@ -6,6 +6,7 @@ import com.tecnocampus.LS2.protube_back.dto.CommentDto;
 import com.tecnocampus.LS2.protube_back.dto.CommentLikeDto;
 import com.tecnocampus.LS2.protube_back.dto.CommentRequestDto;
 import com.tecnocampus.LS2.protube_back.dto.PageDto;
+import com.tecnocampus.LS2.protube_back.exception.ForbiddenException;
 import com.tecnocampus.LS2.protube_back.exception.InvalidRequestException;
 import com.tecnocampus.LS2.protube_back.exception.NotFoundException;
 import com.tecnocampus.LS2.protube_back.security.RestAuthenticationEntryPoint;
@@ -25,6 +26,8 @@ import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -184,5 +187,105 @@ class CommentControllerTest {
                 .andExpect(jsonPath("$.commentId").value(1))
                 .andExpect(jsonPath("$.likeCount").value(4))
                 .andExpect(jsonPath("$.likedByMe").value(false));
+    }
+
+    @Test
+    void updateComment_unauthenticated_returns401() throws Exception {
+        CommentRequestDto body = new CommentRequestDto("Updated text");
+        mockMvc.perform(put("/api/comments/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @WithMockUser(username = "bob")
+    void updateComment_emptyText_returns400() throws Exception {
+        CommentRequestDto body = new CommentRequestDto("");
+        mockMvc.perform(put("/api/comments/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @WithMockUser(username = "bob")
+    void updateComment_authenticatedAndValid_returns200() throws Exception {
+        CommentRequestDto body = new CommentRequestDto("Updated comment text");
+        CommentDto updated = new CommentDto(
+                1L, 10L, "Updated comment text", "bob", Instant.now(), 2L, false, null, List.of()
+        );
+        when(commentService.updateComment(eq(1L), any(CommentRequestDto.class))).thenReturn(updated);
+
+        mockMvc.perform(put("/api/comments/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(1))
+                .andExpect(jsonPath("$.text").value("Updated comment text"))
+                .andExpect(jsonPath("$.author").value("bob"));
+    }
+
+    @Test
+    @WithMockUser(username = "bob")
+    void updateComment_notFound_returns404() throws Exception {
+        CommentRequestDto body = new CommentRequestDto("Updated text");
+        when(commentService.updateComment(eq(999L), any(CommentRequestDto.class)))
+                .thenThrow(new NotFoundException("Comment not found with id 999"));
+
+        mockMvc.perform(put("/api/comments/999")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @WithMockUser(username = "bob")
+    void updateComment_forbidden_returns403() throws Exception {
+        CommentRequestDto body = new CommentRequestDto("Updated text");
+        when(commentService.updateComment(eq(1L), any(CommentRequestDto.class)))
+                .thenThrow(new ForbiddenException("Only the author can edit this comment"));
+
+        mockMvc.perform(put("/api/comments/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.detail").value("Only the author can edit this comment"));
+    }
+
+    @Test
+    void deleteComment_unauthenticated_returns401() throws Exception {
+        mockMvc.perform(delete("/api/comments/1"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @WithMockUser(username = "bob")
+    void deleteComment_authenticatedAndAuthor_returns204() throws Exception {
+        doNothing().when(commentService).deleteComment(1L);
+
+        mockMvc.perform(delete("/api/comments/1"))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
+    @WithMockUser(username = "bob")
+    void deleteComment_notFound_returns404() throws Exception {
+        doThrow(new NotFoundException("Comment not found with id 999"))
+                .when(commentService).deleteComment(999L);
+
+        mockMvc.perform(delete("/api/comments/999"))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @WithMockUser(username = "bob")
+    void deleteComment_forbidden_returns403() throws Exception {
+        doThrow(new ForbiddenException("Only the author can delete this comment"))
+                .when(commentService).deleteComment(1L);
+
+        mockMvc.perform(delete("/api/comments/1"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.detail").value("Only the author can delete this comment"));
     }
 }

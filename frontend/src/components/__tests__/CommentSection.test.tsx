@@ -61,9 +61,9 @@ const mockPage: CommentsPage = {
   last: true,
 };
 
-const renderWithAuth = (component: React.ReactElement, isAuthenticated = false) => {
+const renderWithAuth = (component: React.ReactElement, isAuthenticated = false, username = 'charlie') => {
   const mockAuthContext: AuthContextType = {
-    user: isAuthenticated ? { id: 10, username: 'charlie', email: 'charlie@example.com' } : null,
+    user: isAuthenticated ? { id: 10, username, email: `${username}@example.com` } : null,
     token: isAuthenticated ? 'valid-jwt-token' : null,
     isAuthenticated,
     isLoading: false,
@@ -377,5 +377,220 @@ describe('CommentSection', () => {
     });
 
     expect(screen.getAllByText('Great video on wildlife!')).toHaveLength(1);
+  });
+
+  describe('edit and delete comments/replies', () => {
+    it('shows Edit and Delete buttons only to the author', async () => {
+      mockedGet.mockResolvedValueOnce({ data: mockPage });
+      // Authenticated as charlie (not author of comment 1 or reply 2)
+      renderWithAuth(<CommentSection videoId={42} />, true, 'charlie');
+
+      await screen.findByText('Great video on wildlife!');
+      expect(screen.queryByRole('button', { name: 'Edit comment by alice' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Delete comment by alice' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Edit reply by bob' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Delete reply by bob' })).not.toBeInTheDocument();
+    });
+
+    it('shows Edit and Delete buttons to author of root comment', async () => {
+      mockedGet.mockResolvedValueOnce({ data: mockPage });
+      // Authenticated as alice (author of comment 1)
+      renderWithAuth(<CommentSection videoId={42} />, true, 'alice');
+
+      await screen.findByText('Great video on wildlife!');
+      expect(screen.getByRole('button', { name: 'Edit comment by alice' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Delete comment by alice' })).toBeInTheDocument();
+      // But not for bob's reply
+      expect(screen.queryByRole('button', { name: 'Edit reply by bob' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Delete reply by bob' })).not.toBeInTheDocument();
+    });
+
+    it('shows Edit and Delete buttons to author of reply', async () => {
+      mockedGet.mockResolvedValueOnce({ data: mockPage });
+      // Authenticated as bob (author of reply 2)
+      renderWithAuth(<CommentSection videoId={42} />, true, 'bob');
+
+      await screen.findByText('Great video on wildlife!');
+      // Not for alice's comment
+      expect(screen.queryByRole('button', { name: 'Edit comment by alice' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Delete comment by alice' })).not.toBeInTheDocument();
+      // But yes for bob's reply
+      expect(screen.getByRole('button', { name: 'Edit reply by bob' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Delete reply by bob' })).toBeInTheDocument();
+    });
+
+    it('edits root comment inline and saves changes', async () => {
+      mockedGet.mockResolvedValueOnce({ data: mockPage });
+      mockedPut.mockResolvedValueOnce({
+        data: { ...sampleComments[0], text: 'Edited text for Alice comment' },
+      });
+
+      renderWithAuth(<CommentSection videoId={42} />, true, 'alice');
+      await screen.findByText('Great video on wildlife!');
+
+      const editBtn = screen.getByRole('button', { name: 'Edit comment by alice' });
+      fireEvent.click(editBtn);
+
+      const textarea = screen.getByLabelText('Edit comment');
+      expect(textarea).toHaveValue('Great video on wildlife!');
+
+      // Cancel button test
+      const cancelBtn = screen.getByRole('button', { name: 'Cancel' });
+      fireEvent.click(cancelBtn);
+      expect(screen.queryByLabelText('Edit comment')).not.toBeInTheDocument();
+      expect(screen.getByText('Great video on wildlife!')).toBeInTheDocument();
+
+      // Re-open and edit
+      fireEvent.click(screen.getByRole('button', { name: 'Edit comment by alice' }));
+      const textareaAgain = screen.getByLabelText('Edit comment');
+      fireEvent.change(textareaAgain, { target: { value: 'Edited text for Alice comment' } });
+
+      const saveBtn = screen.getByRole('button', { name: 'Save' });
+      await act(async () => {
+        fireEvent.click(saveBtn);
+      });
+
+      expect(mockedPut).toHaveBeenCalledWith(
+        expect.stringContaining('/comments/1'),
+        { text: 'Edited text for Alice comment' },
+        expect.any(Object)
+      );
+
+      expect(await screen.findByText('Edited text for Alice comment')).toBeInTheDocument();
+      expect(screen.queryByLabelText('Edit comment')).not.toBeInTheDocument();
+    });
+
+    it('displays error when editing comment fails', async () => {
+      mockedGet.mockResolvedValueOnce({ data: mockPage });
+      mockedPut.mockRejectedValueOnce(new Error('Update failed on server'));
+
+      renderWithAuth(<CommentSection videoId={42} />, true, 'alice');
+      await screen.findByText('Great video on wildlife!');
+
+      fireEvent.click(screen.getByRole('button', { name: 'Edit comment by alice' }));
+      const textarea = screen.getByLabelText('Edit comment');
+      fireEvent.change(textarea, { target: { value: 'Will fail' } });
+
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+      });
+
+      expect(await screen.findByText('Update failed on server')).toBeInTheDocument();
+    });
+
+    it('edits reply inline and saves changes', async () => {
+      mockedGet.mockResolvedValueOnce({ data: mockPage });
+      mockedPut.mockResolvedValueOnce({
+        data: { ...sampleComments[0].replies[0], text: 'Edited reply text by Bob' },
+      });
+
+      renderWithAuth(<CommentSection videoId={42} />, true, 'bob');
+      await screen.findByText('I totally agree with you.');
+
+      fireEvent.click(screen.getByRole('button', { name: 'Edit reply by bob' }));
+      const textarea = screen.getByLabelText('Edit reply');
+      expect(textarea).toHaveValue('I totally agree with you.');
+
+      fireEvent.change(textarea, { target: { value: 'Edited reply text by Bob' } });
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+      });
+
+      expect(mockedPut).toHaveBeenCalledWith(
+        expect.stringContaining('/comments/2'),
+        { text: 'Edited reply text by Bob' },
+        expect.any(Object)
+      );
+
+      expect(await screen.findByText('Edited reply text by Bob')).toBeInTheDocument();
+    });
+
+    it('opens confirmation modal and dismisses on Cancel', async () => {
+      mockedGet.mockResolvedValueOnce({ data: mockPage });
+
+      renderWithAuth(<CommentSection videoId={42} />, true, 'alice');
+      await screen.findByText('Great video on wildlife!');
+
+      fireEvent.click(screen.getByRole('button', { name: 'Delete comment by alice' }));
+
+      expect(screen.getByRole('dialog')).toBeInTheDocument();
+      expect(screen.getByText('Delete Comment')).toBeInTheDocument();
+      expect(
+        screen.getByText('Are you sure you want to delete this comment? This action cannot be undone.')
+      ).toBeInTheDocument();
+
+      const cancelBtn = screen.getByRole('dialog').querySelector('.modal-footer .btn-secondary') as HTMLElement;
+      fireEvent.click(cancelBtn);
+
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      expect(screen.getByText('Great video on wildlife!')).toBeInTheDocument();
+      expect(mockedDelete).not.toHaveBeenCalled();
+    });
+
+    it('deletes root comment, updates list, and decrements counter with cascade', async () => {
+      mockedGet.mockResolvedValueOnce({ data: mockPage });
+      mockedDelete.mockResolvedValueOnce({ status: 204 });
+
+      renderWithAuth(<CommentSection videoId={42} initialCommentCount={3} />, true, 'alice');
+      await screen.findByText('Great video on wildlife!');
+      expect(screen.getByRole('heading', { level: 2, name: 'Comments (3)' })).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Delete comment by alice' }));
+      const confirmDeleteBtn = screen.getByRole('dialog').querySelector('.modal-footer .btn-danger') as HTMLElement;
+
+      await act(async () => {
+        fireEvent.click(confirmDeleteBtn);
+      });
+
+      expect(mockedDelete).toHaveBeenCalledWith(expect.stringContaining('/comments/1'), expect.any(Object));
+
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      expect(screen.queryByText('Great video on wildlife!')).not.toBeInTheDocument();
+      // Counter: was 3, root comment + 1 reply deleted -> 3 - 2 = 1
+      expect(screen.getByRole('heading', { level: 2, name: 'Comments (1)' })).toBeInTheDocument();
+    });
+
+    it('deletes reply comment, updates list, and decrements counter by 1', async () => {
+      mockedGet.mockResolvedValueOnce({ data: mockPage });
+      mockedDelete.mockResolvedValueOnce({ status: 204 });
+
+      renderWithAuth(<CommentSection videoId={42} initialCommentCount={3} />, true, 'bob');
+      await screen.findByText('I totally agree with you.');
+      expect(screen.getByRole('heading', { level: 2, name: 'Comments (3)' })).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Delete reply by bob' }));
+      const confirmDeleteBtn = screen.getByRole('dialog').querySelector('.modal-footer .btn-danger') as HTMLElement;
+
+      await act(async () => {
+        fireEvent.click(confirmDeleteBtn);
+      });
+
+      expect(mockedDelete).toHaveBeenCalledWith(expect.stringContaining('/comments/2'), expect.any(Object));
+
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      expect(screen.queryByText('I totally agree with you.')).not.toBeInTheDocument();
+      // Root comment remains
+      expect(screen.getByText('Great video on wildlife!')).toBeInTheDocument();
+      // Counter: was 3, 1 reply deleted -> 3 - 1 = 2
+      expect(screen.getByRole('heading', { level: 2, name: 'Comments (2)' })).toBeInTheDocument();
+    });
+
+    it('displays error in modal when delete fails', async () => {
+      mockedGet.mockResolvedValueOnce({ data: mockPage });
+      mockedDelete.mockRejectedValueOnce(new Error('Cannot delete comment'));
+
+      renderWithAuth(<CommentSection videoId={42} />, true, 'alice');
+      await screen.findByText('Great video on wildlife!');
+
+      fireEvent.click(screen.getByRole('button', { name: 'Delete comment by alice' }));
+      const confirmDeleteBtn = screen.getByRole('dialog').querySelector('.modal-footer .btn-danger') as HTMLElement;
+
+      await act(async () => {
+        fireEvent.click(confirmDeleteBtn);
+      });
+
+      expect(await screen.findByText('Cannot delete comment')).toBeInTheDocument();
+      expect(screen.getByRole('dialog')).toBeInTheDocument();
+    });
   });
 });

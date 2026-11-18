@@ -16,6 +16,8 @@ interface UseCommentsReturn {
   loadMore: () => Promise<void>;
   addComment: (text: string) => Promise<Comment>;
   addReply: (commentId: number, text: string) => Promise<Comment>;
+  editComment: (commentId: number, text: string) => Promise<Comment>;
+  deleteComment: (commentId: number) => Promise<void>;
   toggleLike: (commentId: number) => Promise<void>;
   reload: () => Promise<void>;
 }
@@ -118,8 +120,72 @@ export function useComments(videoId: number | string | undefined): UseCommentsRe
           return c;
         })
       );
+      setTotalElements((prev) => prev + 1);
       setAddedCount((prev) => prev + 1);
       return res.data;
+    },
+    [getAuthHeaders]
+  );
+
+  const editComment = useCallback(
+    async (commentId: number, text: string): Promise<Comment> => {
+      const res = await axios.put<Comment>(
+        `${getEnv().API_BASE_URL}/comments/${commentId}`,
+        { text },
+        { headers: getAuthHeaders() }
+      );
+      const updated = res.data;
+      setComments((prev) =>
+        prev.map((c) => {
+          if (c.id === commentId) {
+            return {
+              ...c,
+              ...updated,
+              replies: updated.replies && updated.replies.length > 0 ? updated.replies : c.replies,
+            };
+          }
+          if (c.replies && c.replies.length > 0) {
+            const updatedReplies = c.replies.map((r) => (r.id === commentId ? { ...r, ...updated } : r));
+            return { ...c, replies: updatedReplies };
+          }
+          return c;
+        })
+      );
+      return updated;
+    },
+    [getAuthHeaders]
+  );
+
+  const deleteComment = useCallback(
+    async (commentId: number): Promise<void> => {
+      await axios.delete(`${getEnv().API_BASE_URL}/comments/${commentId}`, {
+        headers: getAuthHeaders(),
+      });
+
+      setComments((prev) => {
+        const rootIndex = prev.findIndex((c) => c.id === commentId);
+        if (rootIndex !== -1) {
+          const root = prev[rootIndex];
+          const repliesCount = root.replies ? root.replies.length : 0;
+          const removedCount = 1 + repliesCount;
+          setTotalElements((te) => Math.max(0, te - removedCount));
+          setAddedCount((ac) => ac - removedCount);
+          return prev.filter((c) => c.id !== commentId);
+        }
+
+        // It is a reply
+        setTotalElements((te) => Math.max(0, te - 1));
+        setAddedCount((ac) => ac - 1);
+        return prev.map((c) => {
+          if (c.replies && c.replies.some((r) => r.id === commentId)) {
+            return {
+              ...c,
+              replies: c.replies.filter((r) => r.id !== commentId),
+            };
+          }
+          return c;
+        });
+      });
     },
     [getAuthHeaders]
   );
@@ -175,6 +241,8 @@ export function useComments(videoId: number | string | undefined): UseCommentsRe
     loadMore,
     addComment,
     addReply,
+    editComment,
+    deleteComment,
     toggleLike,
     reload,
   };
