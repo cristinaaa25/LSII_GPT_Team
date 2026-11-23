@@ -8,6 +8,7 @@ import com.tecnocampus.LS2.protube_back.dto.CommentDto;
 import com.tecnocampus.LS2.protube_back.dto.CommentLikeDto;
 import com.tecnocampus.LS2.protube_back.dto.CommentRequestDto;
 import com.tecnocampus.LS2.protube_back.dto.PageDto;
+import com.tecnocampus.LS2.protube_back.exception.ForbiddenException;
 import com.tecnocampus.LS2.protube_back.exception.InvalidRequestException;
 import com.tecnocampus.LS2.protube_back.exception.NotFoundException;
 import com.tecnocampus.LS2.protube_back.repository.CommentLikeRepository;
@@ -355,5 +356,128 @@ class CommentServiceTest {
                 .isInstanceOf(NotFoundException.class);
         assertThatThrownBy(() -> commentService.unlikeComment(999L))
                 .isInstanceOf(NotFoundException.class);
+    }
+
+    @Test
+    void updateComment_success() {
+        mockAuthentication(user);
+        when(userRepository.findById(10L)).thenReturn(Optional.of(user));
+        when(commentRepository.findById(200L)).thenReturn(Optional.of(rootComment));
+        when(commentRepository.save(any(Comment.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(commentLikeRepository.countByCommentId(200L)).thenReturn(3L);
+        when(commentLikeRepository.existsByCommentIdAndUserId(200L, 10L)).thenReturn(true);
+        when(commentRepository.findByParentIdInOrderByCreatedAtAsc(List.of(200L))).thenReturn(List.of(replyComment));
+        when(commentLikeRepository.countByCommentIds(List.of(201L))).thenReturn(List.of(likeCount(201L, 1L)));
+        when(commentLikeRepository.findLikedCommentIds(10L, List.of(201L))).thenReturn(List.of());
+
+        CommentRequestDto request = new CommentRequestDto("Updated root text");
+        CommentDto result = commentService.updateComment(200L, request);
+
+        assertThat(result.id()).isEqualTo(200L);
+        assertThat(result.text()).isEqualTo("Updated root text");
+        assertThat(result.author()).isEqualTo("alice");
+        assertThat(result.likeCount()).isEqualTo(3L);
+        assertThat(result.likedByMe()).isTrue();
+        assertThat(result.replies()).hasSize(1);
+        assertThat(result.replies().get(0).id()).isEqualTo(201L);
+        verify(commentRepository).save(rootComment);
+    }
+
+    @Test
+    void updateComment_reply_success() {
+        mockAuthentication(user);
+        when(userRepository.findById(10L)).thenReturn(Optional.of(user));
+        when(commentRepository.findById(201L)).thenReturn(Optional.of(replyComment));
+        when(commentRepository.save(any(Comment.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(commentLikeRepository.countByCommentId(201L)).thenReturn(0L);
+        when(commentLikeRepository.existsByCommentIdAndUserId(201L, 10L)).thenReturn(false);
+
+        CommentRequestDto request = new CommentRequestDto("Updated reply text");
+        CommentDto result = commentService.updateComment(201L, request);
+
+        assertThat(result.id()).isEqualTo(201L);
+        assertThat(result.text()).isEqualTo("Updated reply text");
+        assertThat(result.parentId()).isEqualTo(200L);
+        assertThat(result.replies()).isEmpty();
+        verify(commentRepository).save(replyComment);
+    }
+
+    @Test
+    void updateComment_validations() {
+        // Null id
+        assertThatThrownBy(() -> commentService.updateComment(null, new CommentRequestDto("Text")))
+                .isInstanceOf(InvalidRequestException.class);
+
+        // Null / empty request
+        assertThatThrownBy(() -> commentService.updateComment(200L, null))
+                .isInstanceOf(InvalidRequestException.class);
+        assertThatThrownBy(() -> commentService.updateComment(200L, new CommentRequestDto("")))
+                .isInstanceOf(InvalidRequestException.class);
+        assertThatThrownBy(() -> commentService.updateComment(200L, new CommentRequestDto("   ")))
+                .isInstanceOf(InvalidRequestException.class);
+        assertThatThrownBy(() -> commentService.updateComment(200L, new CommentRequestDto("a".repeat(2001))))
+                .isInstanceOf(InvalidRequestException.class);
+
+        // Unauthenticated
+        assertThatThrownBy(() -> commentService.updateComment(200L, new CommentRequestDto("Valid")))
+                .isInstanceOf(BadCredentialsException.class);
+
+        // Not found
+        mockAuthentication(user);
+        when(userRepository.findById(10L)).thenReturn(Optional.of(user));
+        when(commentRepository.findById(999L)).thenReturn(Optional.empty());
+        assertThatThrownBy(() -> commentService.updateComment(999L, new CommentRequestDto("Valid")))
+                .isInstanceOf(NotFoundException.class);
+
+        // Forbidden (different author)
+        User otherUser = new User("other", "other@example.com", "pass");
+        otherUser.setId(99L);
+        Comment otherComment = new Comment("Other comment", video, otherUser);
+        otherComment.setId(300L);
+        when(commentRepository.findById(300L)).thenReturn(Optional.of(otherComment));
+
+        assertThatThrownBy(() -> commentService.updateComment(300L, new CommentRequestDto("Valid")))
+                .isInstanceOf(ForbiddenException.class)
+                .hasMessageContaining("Only the author can edit this comment");
+    }
+
+    @Test
+    void deleteComment_success() {
+        mockAuthentication(user);
+        when(userRepository.findById(10L)).thenReturn(Optional.of(user));
+        when(commentRepository.findById(200L)).thenReturn(Optional.of(rootComment));
+
+        commentService.deleteComment(200L);
+
+        verify(commentRepository).delete(rootComment);
+    }
+
+    @Test
+    void deleteComment_validations() {
+        // Null id
+        assertThatThrownBy(() -> commentService.deleteComment(null))
+                .isInstanceOf(InvalidRequestException.class);
+
+        // Unauthenticated
+        assertThatThrownBy(() -> commentService.deleteComment(200L))
+                .isInstanceOf(BadCredentialsException.class);
+
+        // Not found
+        mockAuthentication(user);
+        when(userRepository.findById(10L)).thenReturn(Optional.of(user));
+        when(commentRepository.findById(999L)).thenReturn(Optional.empty());
+        assertThatThrownBy(() -> commentService.deleteComment(999L))
+                .isInstanceOf(NotFoundException.class);
+
+        // Forbidden (different author)
+        User otherUser = new User("other", "other@example.com", "pass");
+        otherUser.setId(99L);
+        Comment otherComment = new Comment("Other comment", video, otherUser);
+        otherComment.setId(300L);
+        when(commentRepository.findById(300L)).thenReturn(Optional.of(otherComment));
+
+        assertThatThrownBy(() -> commentService.deleteComment(300L))
+                .isInstanceOf(ForbiddenException.class)
+                .hasMessageContaining("Only the author can delete this comment");
     }
 }

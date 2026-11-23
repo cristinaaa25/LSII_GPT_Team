@@ -8,6 +8,7 @@ import com.tecnocampus.LS2.protube_back.dto.CommentDto;
 import com.tecnocampus.LS2.protube_back.dto.CommentLikeDto;
 import com.tecnocampus.LS2.protube_back.dto.CommentRequestDto;
 import com.tecnocampus.LS2.protube_back.dto.PageDto;
+import com.tecnocampus.LS2.protube_back.exception.ForbiddenException;
 import com.tecnocampus.LS2.protube_back.exception.InvalidRequestException;
 import com.tecnocampus.LS2.protube_back.exception.NotFoundException;
 import com.tecnocampus.LS2.protube_back.repository.CommentLikeRepository;
@@ -183,6 +184,65 @@ public class CommentService {
 
         long likeCount = commentLikeRepository.countByCommentId(comment.getId());
         return new CommentLikeDto(comment.getId(), likeCount, false);
+    }
+
+    @Transactional
+    public CommentDto updateComment(Long commentId, CommentRequestDto request) {
+        if (commentId == null) {
+            throw new InvalidRequestException("Comment id must not be null");
+        }
+        validateRequest(request);
+
+        User currentUser = requireCurrentAuthenticatedUser();
+        Comment comment = commentRepository.findById(commentId)
+                .orElseThrow(() -> new NotFoundException("Comment not found with id " + commentId));
+
+        if (comment.getAuthor() == null || !comment.getAuthor().getId().equals(currentUser.getId())) {
+            throw new ForbiddenException("Only the author can edit this comment");
+        }
+
+        comment.setText(request.text().trim());
+        Comment saved = commentRepository.save(comment);
+
+        long likeCount = commentLikeRepository.countByCommentId(saved.getId());
+        boolean likedByMe = commentLikeRepository.existsByCommentIdAndUserId(saved.getId(), currentUser.getId());
+
+        List<CommentDto> replies = Collections.emptyList();
+        if (saved.getParent() == null) {
+            List<Comment> replyEntities = commentRepository.findByParentIdInOrderByCreatedAtAsc(List.of(saved.getId()));
+            if (!replyEntities.isEmpty()) {
+                List<Long> replyIds = replyEntities.stream().map(Comment::getId).toList();
+                Map<Long, Long> replyLikeCounts = new HashMap<>();
+                Set<Long> replyLikedByMe = new HashSet<>();
+                commentLikeRepository.countByCommentIds(replyIds)
+                        .forEach(c -> replyLikeCounts.put(c.getCommentId(), c.getLikeCount()));
+                replyLikedByMe.addAll(commentLikeRepository.findLikedCommentIds(currentUser.getId(), replyIds));
+
+                replies = replyEntities.stream()
+                        .map(r -> toDto(r, replyLikeCounts.getOrDefault(r.getId(), 0L),
+                                replyLikedByMe.contains(r.getId()), Collections.emptyList()))
+                        .toList();
+            }
+        }
+
+        return toDto(saved, likeCount, likedByMe, replies);
+    }
+
+    @Transactional
+    public void deleteComment(Long commentId) {
+        if (commentId == null) {
+            throw new InvalidRequestException("Comment id must not be null");
+        }
+
+        User currentUser = requireCurrentAuthenticatedUser();
+        Comment comment = commentRepository.findById(commentId)
+                .orElseThrow(() -> new NotFoundException("Comment not found with id " + commentId));
+
+        if (comment.getAuthor() == null || !comment.getAuthor().getId().equals(currentUser.getId())) {
+            throw new ForbiddenException("Only the author can delete this comment");
+        }
+
+        commentRepository.delete(comment);
     }
 
     private void validatePage(int page, int size) {
