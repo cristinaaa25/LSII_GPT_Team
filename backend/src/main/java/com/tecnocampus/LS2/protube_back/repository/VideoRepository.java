@@ -20,6 +20,23 @@ public interface VideoRepository extends JpaRepository<Video, Long> {
     @EntityGraph(attributePaths = "uploader")
     Page<Video> findByUploaderId(Long uploaderId, Pageable pageable);
 
+    /**
+     * Subscription feed: videos uploaded by the channels {@code subscriberId} follows, newest first
+     * ({@code createdAt DESC, id DESC}, so videos with the same time keep a stable order between pages).
+     * The page request must stay unsorted: the order is part of the query.
+     */
+    @EntityGraph(attributePaths = "uploader")
+    @Query(value = """
+            SELECT v FROM Video v
+            WHERE v.uploader.id IN (SELECT s.channel.id FROM Subscription s WHERE s.subscriber.id = :subscriberId)
+            ORDER BY v.createdAt DESC, v.id DESC
+            """,
+            countQuery = """
+            SELECT COUNT(v) FROM Video v
+            WHERE v.uploader.id IN (SELECT s.channel.id FROM Subscription s WHERE s.subscriber.id = :subscriberId)
+            """)
+    Page<Video> findFeed(@Param("subscriberId") Long subscriberId, Pageable pageable);
+
     List<Video> findByTitleContainingIgnoreCase(String query);
     boolean existsByStoreId(Long storeId);
 

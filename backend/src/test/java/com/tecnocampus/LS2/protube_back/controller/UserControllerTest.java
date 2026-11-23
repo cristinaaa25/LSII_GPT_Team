@@ -7,6 +7,7 @@ import com.tecnocampus.LS2.protube_back.exception.InvalidRequestException;
 import com.tecnocampus.LS2.protube_back.exception.NotFoundException;
 import com.tecnocampus.LS2.protube_back.security.RestAuthenticationEntryPoint;
 import com.tecnocampus.LS2.protube_back.services.AnalyticsService;
+import com.tecnocampus.LS2.protube_back.services.SubscriptionService;
 import com.tecnocampus.LS2.protube_back.services.UserService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -51,12 +52,15 @@ class UserControllerTest {
     @MockBean
     AnalyticsService analyticsService;
 
+    @MockBean
+    SubscriptionService subscriptionService;
+
     @Test
     void getPublicProfileReturns200ForUnauthenticatedUser() throws Exception {
         var video = new VideoSummaryDto(1L, "My Video", "alice", 12.0, 10L, "thumb.webp");
-        var profile = new UserProfileDto(1L, "alice", "Alice Wonder", "/media/avatars/a.png", "Alice bio", List.of(video));
+        var profile = new UserProfileDto(1L, "alice", "Alice Wonder", "/media/avatars/a.png", "Alice bio", List.of(video), 3, false);
 
-        when(userService.getPublicProfile("alice")).thenReturn(profile);
+        when(userService.getPublicProfile("alice", null)).thenReturn(profile);
 
         mockMvc.perform(get("/api/users/alice"))
                 .andExpect(status().isOk())
@@ -64,12 +68,84 @@ class UserControllerTest {
                 .andExpect(jsonPath("$.displayName").value("Alice Wonder"))
                 .andExpect(jsonPath("$.avatarUrl").value("/media/avatars/a.png"))
                 .andExpect(jsonPath("$.description").value("Alice bio"))
-                .andExpect(jsonPath("$.videos[0].title").value("My Video"));
+                .andExpect(jsonPath("$.videos[0].title").value("My Video"))
+                .andExpect(jsonPath("$.subscriberCount").value(3))
+                .andExpect(jsonPath("$.subscribedByMe").value(false));
+    }
+
+    @Test
+    @WithMockUser(username = "bob")
+    void getPublicProfilePassesTheViewerWhenAuthenticated() throws Exception {
+        var profile = new UserProfileDto(1L, "alice", null, null, null, List.of(), 1, true);
+        when(userService.getPublicProfile("alice", "bob")).thenReturn(profile);
+
+        mockMvc.perform(get("/api/users/alice"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.subscriberCount").value(1))
+                .andExpect(jsonPath("$.subscribedByMe").value(true));
+    }
+
+    @Test
+    @WithMockUser(username = "bob")
+    void subscribeAndUnsubscribeReturnTheNewStatus() throws Exception {
+        when(subscriptionService.subscribe("bob", "alice")).thenReturn(new SubscriptionStatusDto("alice", 1, true));
+        when(subscriptionService.unsubscribe("bob", "alice")).thenReturn(new SubscriptionStatusDto("alice", 0, false));
+
+        mockMvc.perform(put("/api/users/alice/subscription"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.username").value("alice"))
+                .andExpect(jsonPath("$.subscriberCount").value(1))
+                .andExpect(jsonPath("$.subscribedByMe").value(true));
+
+        mockMvc.perform(delete("/api/users/alice/subscription"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.subscriberCount").value(0))
+                .andExpect(jsonPath("$.subscribedByMe").value(false));
+    }
+
+    @Test
+    void subscriptionEndpointsReturn401WhenUnauthenticated() throws Exception {
+        mockMvc.perform(put("/api/users/alice/subscription")).andExpect(status().isUnauthorized());
+        mockMvc.perform(delete("/api/users/alice/subscription")).andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/users/me/subscriptions")).andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/users/me/feed")).andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @WithMockUser(username = "bob")
+    void subscribeMapsServiceErrorsTo404And400() throws Exception {
+        when(subscriptionService.subscribe("bob", "ghost")).thenThrow(new NotFoundException("User not found: ghost"));
+        when(subscriptionService.subscribe("bob", "bob"))
+                .thenThrow(new InvalidRequestException("You cannot subscribe to your own channel"));
+
+        mockMvc.perform(put("/api/users/ghost/subscription")).andExpect(status().isNotFound());
+        mockMvc.perform(put("/api/users/bob/subscription")).andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @WithMockUser(username = "bob")
+    void getMySubscriptionsAndFeedReturn200() throws Exception {
+        when(subscriptionService.getSubscriptions("bob")).thenReturn(List.of(
+                new ChannelDto(1L, "alice", "Alice", null, 5, Instant.parse("2026-11-20T10:00:00Z"))));
+        var video = new VideoSummaryDto(7L, "New", "alice", 10.0, 0L, null);
+        when(subscriptionService.getFeed("bob", 1, 5))
+                .thenReturn(new PageDto<>(List.of(video), 1, 5, 6, 2, true));
+
+        mockMvc.perform(get("/api/users/me/subscriptions"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].username").value("alice"))
+                .andExpect(jsonPath("$[0].subscriberCount").value(5));
+
+        mockMvc.perform(get("/api/users/me/feed").param("page", "1").param("size", "5"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].id").value(7))
+                .andExpect(jsonPath("$.page").value(1))
+                .andExpect(jsonPath("$.last").value(true));
     }
 
     @Test
     void getPublicProfileReturns404WhenNotFound() throws Exception {
-        when(userService.getPublicProfile("unknown")).thenThrow(new NotFoundException("User not found: unknown"));
+        when(userService.getPublicProfile("unknown", null)).thenThrow(new NotFoundException("User not found: unknown"));
 
         mockMvc.perform(get("/api/users/unknown"))
                 .andExpect(status().isNotFound());
@@ -209,7 +285,7 @@ class UserControllerTest {
 
     @Test
     void directControllerCallsThrowBadCredentialsWhenPrincipalNull() {
-        UserController controller = new UserController(userService, analyticsService);
+        UserController controller = new UserController(userService, analyticsService, subscriptionService);
         assertThatThrownBy(() -> controller.getMe(null))
                 .isInstanceOf(BadCredentialsException.class)
                 .hasMessage("Authentication required");
@@ -225,6 +301,11 @@ class UserControllerTest {
         assertThatThrownBy(() -> controller.uploadAvatar(null, null))
                 .isInstanceOf(BadCredentialsException.class)
                 .hasMessage("Authentication required");
+
+        assertThatThrownBy(() -> controller.subscribe("alice", null)).isInstanceOf(BadCredentialsException.class);
+        assertThatThrownBy(() -> controller.unsubscribe("alice", null)).isInstanceOf(BadCredentialsException.class);
+        assertThatThrownBy(() -> controller.getMySubscriptions(null)).isInstanceOf(BadCredentialsException.class);
+        assertThatThrownBy(() -> controller.getMyFeed(0, 12, null)).isInstanceOf(BadCredentialsException.class);
     }
 
     @Test

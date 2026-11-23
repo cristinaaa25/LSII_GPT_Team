@@ -2,11 +2,13 @@ import React, { useContext, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import CommentSection from './CommentSection';
 import VideoEditForm from './VideoEditForm';
+import SubscribeButton from './SubscribeButton';
 import { AuthContext } from '../context/AuthContext';
 import { useVideoDetail } from '../hooks/useVideoDetail';
 import { videoService } from '../services/videoService';
 import { getEnv } from '../utils/Env';
-import { formatDate, formatViews } from '../utils/format';
+import { formatDate, formatSubscribers, formatViews } from '../utils/format';
+import { SubscriptionStatus } from '../types/user';
 
 const resolveMediaUrl = (value: string | undefined, fallback: string): string => {
   if (!value) return `${getEnv().MEDIA_BASE_URL}/${fallback}`;
@@ -40,6 +42,17 @@ const VideoDetailPage: React.FC = () => {
   }, [id]);
 
   const liked = userLiked !== null ? userLiked : Boolean(video?.likedByMe);
+
+  const handleSubscriptionChange = (status: SubscriptionStatus) => {
+    // Ignore a late answer for another author (the user moved to another video meanwhile)
+    if (video && status.username === video.author) {
+      replaceVideo({
+        ...video,
+        authorSubscriberCount: status.subscriberCount,
+        subscribedByMe: status.subscribedByMe,
+      });
+    }
+  };
   const likeCount = Math.max(0, (video?.likes ?? 0) + likeOffset);
 
   const handleDeleteVideo = async () => {
@@ -174,10 +187,22 @@ const VideoDetailPage: React.FC = () => {
           )}
         </div>
         <div className="d-flex flex-wrap justify-content-between align-items-center border-bottom pb-3 text-body-secondary small">
-          <div className="d-flex align-items-center gap-3">
-            <Link to={`/users/${encodeURIComponent(video.author)}`} className="fw-bold text-body text-decoration-none">
-              {video.author}
-            </Link>
+          <div className="d-flex flex-wrap align-items-center gap-3">
+            <div className="d-flex flex-column">
+              <Link
+                to={`/users/${encodeURIComponent(video.author)}`}
+                className="fw-bold text-body text-decoration-none"
+              >
+                {video.author}
+              </Link>
+              <span>{formatSubscribers(video.authorSubscriberCount ?? 0)}</span>
+            </div>
+            <SubscribeButton
+              channel={video.author}
+              subscribed={Boolean(video.subscribedByMe)}
+              onChange={handleSubscriptionChange}
+              size="sm"
+            />
             <span>{formatViews(video.views)}</span>
             {video.uploadDate && <span>Uploaded on {formatDate(video.uploadDate)}</span>}
           </div>

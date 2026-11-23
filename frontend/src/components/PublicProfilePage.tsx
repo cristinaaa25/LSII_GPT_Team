@@ -2,12 +2,24 @@ import React from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { usePublicProfile } from '../hooks/usePublicProfile';
 import VideoCard from './VideoCard';
-import { resolveAvatarUrl } from '../utils/format';
+import SubscribeButton from './SubscribeButton';
+import { formatSubscribers, resolveAvatarUrl } from '../utils/format';
 
 export const PublicProfilePage: React.FC = () => {
   const { username } = useParams<{ username: string }>();
-  const { profile, loading, error, notFound, videos, totalVideos, hasMore, loadingMore, loadMoreError, loadMore } =
-    usePublicProfile(username);
+  const {
+    profile,
+    loading,
+    error,
+    notFound,
+    videos,
+    totalVideos,
+    hasMore,
+    loadingMore,
+    loadMoreError,
+    loadMore,
+    applySubscription,
+  } = usePublicProfile(username);
 
   if (loading) {
     return (
@@ -71,7 +83,9 @@ export const PublicProfilePage: React.FC = () => {
 
           <div className="text-center text-sm-start flex-grow-1">
             <h1 className="h3 mb-1">{profile.displayName || profile.username}</h1>
-            <div className="text-secondary mb-2">@{profile.username}</div>
+            <div className="text-secondary mb-2">
+              <span>@{profile.username}</span> · <span>{formatSubscribers(profile.subscriberCount)}</span>
+            </div>
             {profile.description ? (
               <p className="mb-0 text-body" style={{ whiteSpace: 'pre-line' }}>
                 {profile.description}
@@ -79,6 +93,14 @@ export const PublicProfilePage: React.FC = () => {
             ) : (
               <p className="text-secondary small fst-italic mb-0">No description provided.</p>
             )}
+          </div>
+
+          <div className="text-center">
+            <SubscribeButton
+              channel={profile.username}
+              subscribed={profile.subscribedByMe}
+              onChange={applySubscription}
+            />
           </div>
         </div>
       </header>

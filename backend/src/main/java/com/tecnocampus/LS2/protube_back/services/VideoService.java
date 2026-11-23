@@ -14,6 +14,7 @@ import com.tecnocampus.LS2.protube_back.exception.ForbiddenException;
 import com.tecnocampus.LS2.protube_back.exception.InvalidRequestException;
 import com.tecnocampus.LS2.protube_back.exception.NotFoundException;
 import com.tecnocampus.LS2.protube_back.repository.CommentRepository;
+import com.tecnocampus.LS2.protube_back.repository.SubscriptionRepository;
 import com.tecnocampus.LS2.protube_back.repository.UserRepository;
 import com.tecnocampus.LS2.protube_back.repository.VideoLikeRepository;
 import com.tecnocampus.LS2.protube_back.repository.VideoRepository;
@@ -81,6 +82,7 @@ public class VideoService {
     private final VideoViewRepository videoViewRepository;
     private final VideoLikeRepository videoLikeRepository;
     private final UserRepository userRepository;
+    private final SubscriptionRepository subscriptionRepository;
     private final String storeDir;
 
     @Autowired
@@ -90,13 +92,26 @@ public class VideoService {
             VideoViewRepository videoViewRepository,
             VideoLikeRepository videoLikeRepository,
             UserRepository userRepository,
+            SubscriptionRepository subscriptionRepository,
             @Value("${pro_tube.store.dir:target/test-store/}") String storeDir) {
         this.videoRepository = videoRepository;
         this.commentRepository = commentRepository;
         this.videoViewRepository = videoViewRepository;
         this.videoLikeRepository = videoLikeRepository;
         this.userRepository = userRepository;
+        this.subscriptionRepository = subscriptionRepository;
         this.storeDir = storeDir != null ? storeDir : "target/test-store/";
+    }
+
+    public VideoService(
+            VideoRepository videoRepository,
+            CommentRepository commentRepository,
+            VideoViewRepository videoViewRepository,
+            VideoLikeRepository videoLikeRepository,
+            UserRepository userRepository,
+            String storeDir) {
+        this(videoRepository, commentRepository, videoViewRepository, videoLikeRepository, userRepository, null,
+                storeDir);
     }
 
     public VideoService(
@@ -195,7 +210,7 @@ public class VideoService {
         boolean likedByMe = currentUser != null
                 && videoLikeRepository != null
                 && videoLikeRepository.existsByVideoIdAndUserId(id, currentUser.getId());
-        return toDetail(video, commentCount, likedByMe);
+        return toDetailFor(video, commentCount, likedByMe, currentUser);
     }
 
     @Transactional
@@ -313,7 +328,7 @@ public class VideoService {
             video.setCategories(cleanCategories);
 
             Video saved = videoRepository.save(video);
-            return toDetail(saved, 0L);
+            return toDetailFor(saved, 0L, false, uploader);
 
         } catch (Exception e) {
             if (targetVideo != null) {
@@ -527,7 +542,25 @@ public class VideoService {
         boolean likedByMe = currentUser != null
                 && videoLikeRepository != null
                 && videoLikeRepository.existsByVideoIdAndUserId(id, currentUser.getId());
-        return toDetail(saved, commentRepository.countByVideoId(id), likedByMe);
+        return toDetailFor(saved, commentRepository.countByVideoId(id), likedByMe, currentUser);
+    }
+
+    /**
+     * Detail plus the author's channel data: subscriber count and whether {@code viewer} follows the author.
+     * Two queries at most (count, exists); never subscribed on your own video, and false when there is no viewer.
+     */
+    private VideoDetailDto toDetailFor(Video video, long commentCount, boolean likedByMe, User viewer) {
+        User author = video.getUploader();
+        long subscriberCount = 0L;
+        boolean subscribedByMe = false;
+        if (subscriptionRepository != null && author != null && author.getId() != null) {
+            subscriberCount = subscriptionRepository.countByChannelId(author.getId());
+            subscribedByMe = viewer != null
+                    && viewer.getId() != null
+                    && !viewer.getId().equals(author.getId())
+                    && subscriptionRepository.existsBySubscriberIdAndChannelId(viewer.getId(), author.getId());
+        }
+        return toDetail(video, commentCount, likedByMe, subscriberCount, subscribedByMe);
     }
 
     /** Deletes the video and dependent rows. Files are deleted after transaction commit. Only the uploader may delete (404 before 403). */
@@ -707,6 +740,11 @@ public class VideoService {
     }
 
     static VideoDetailDto toDetail(Video video, long commentCount, boolean likedByMe) {
+        return toDetail(video, commentCount, likedByMe, 0L, false);
+    }
+
+    static VideoDetailDto toDetail(Video video, long commentCount, boolean likedByMe, long authorSubscriberCount,
+                                   boolean subscribedByMe) {
         return new VideoDetailDto(
                 video.getId(),
                 video.getTitle(),
@@ -720,7 +758,9 @@ public class VideoService {
                 commentCount,
                 video.getVideoUrl(),
                 video.getThumbnailUrl(),
-                likedByMe);
+                likedByMe,
+                authorSubscriberCount,
+                subscribedByMe);
     }
 }
 

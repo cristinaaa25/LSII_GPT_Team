@@ -8,10 +8,11 @@ jest.mock('axios', () => ({
     get: jest.fn(),
     put: jest.fn(),
     post: jest.fn(),
+    delete: jest.fn(),
   },
 }));
 
-const mockedAxios = axios as unknown as { get: jest.Mock; put: jest.Mock; post: jest.Mock };
+const mockedAxios = axios as unknown as { get: jest.Mock; put: jest.Mock; post: jest.Mock; delete: jest.Mock };
 
 describe('userService', () => {
   beforeEach(() => {
@@ -19,6 +20,7 @@ describe('userService', () => {
     mockedAxios.get.mockReset();
     mockedAxios.put.mockReset();
     mockedAxios.post.mockReset();
+    mockedAxios.delete.mockReset();
   });
 
   it('fetches public profile by username', async () => {
@@ -29,13 +31,63 @@ describe('userService', () => {
       avatarUrl: '/media/avatars/a.png',
       description: 'bio',
       videos: [],
+      subscriberCount: 3,
+      subscribedByMe: false,
     };
     mockedAxios.get.mockResolvedValueOnce({ data: profile });
 
     const result = await userService.getPublicProfile('alice');
 
     expect(result).toEqual(profile);
-    expect(mockedAxios.get).toHaveBeenCalledWith('other/users/alice');
+    // Logged out: no Authorization header
+    expect(mockedAxios.get).toHaveBeenCalledWith('other/users/alice', { headers: {} });
+  });
+
+  it('sends the token with the public profile so subscribedByMe can be filled', async () => {
+    authService.setToken('bob-token');
+    mockedAxios.get.mockResolvedValueOnce({ data: {} });
+
+    await userService.getPublicProfile('alice');
+
+    expect(mockedAxios.get).toHaveBeenCalledWith('other/users/alice', {
+      headers: { Authorization: 'Bearer bob-token' },
+    });
+  });
+
+  it('subscribes and unsubscribes with the token', async () => {
+    authService.setToken('bob-token');
+    const subscribed = { username: 'al.ice', subscriberCount: 1, subscribedByMe: true };
+    const unsubscribed = { username: 'al.ice', subscriberCount: 0, subscribedByMe: false };
+    mockedAxios.put.mockResolvedValueOnce({ data: subscribed });
+    mockedAxios.delete.mockResolvedValueOnce({ data: unsubscribed });
+
+    await expect(userService.subscribe('al.ice')).resolves.toEqual(subscribed);
+    await expect(userService.unsubscribe('al.ice')).resolves.toEqual(unsubscribed);
+
+    expect(mockedAxios.put).toHaveBeenCalledWith('other/users/al.ice/subscription', null, {
+      headers: { Authorization: 'Bearer bob-token' },
+    });
+    expect(mockedAxios.delete).toHaveBeenCalledWith('other/users/al.ice/subscription', {
+      headers: { Authorization: 'Bearer bob-token' },
+    });
+  });
+
+  it('fetches my subscriptions and a page of my feed', async () => {
+    authService.setToken('bob-token');
+    const channels = [{ id: 1, username: 'alice', subscriberCount: 2, subscribedAt: '2026-11-20T10:00:00Z' }];
+    const page = { content: [], page: 2, size: 12, totalElements: 30, totalPages: 3, last: true };
+    mockedAxios.get.mockResolvedValueOnce({ data: channels }).mockResolvedValueOnce({ data: page });
+
+    await expect(userService.getMySubscriptions()).resolves.toEqual(channels);
+    await expect(userService.getMyFeed(2, 12)).resolves.toEqual(page);
+
+    expect(mockedAxios.get).toHaveBeenNthCalledWith(1, 'other/users/me/subscriptions', {
+      headers: { Authorization: 'Bearer bob-token' },
+    });
+    expect(mockedAxios.get).toHaveBeenNthCalledWith(2, 'other/users/me/feed', {
+      params: { page: 2, size: 12 },
+      headers: { Authorization: 'Bearer bob-token' },
+    });
   });
 
   it('fetches one page of a user public videos', async () => {

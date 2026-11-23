@@ -18,7 +18,14 @@ const page = (ids: number[], pageNumber: number, totalElements: number, last: bo
   last,
 });
 
-const profile = { id: 1, username: 'alice', displayName: 'Alice', videos: [] };
+const profile = {
+  id: 1,
+  username: 'alice',
+  displayName: 'Alice',
+  videos: [],
+  subscriberCount: 2,
+  subscribedByMe: false,
+};
 
 describe('usePublicProfile', () => {
   beforeEach(() => {
@@ -34,6 +41,8 @@ describe('usePublicProfile', () => {
       avatarUrl: '/media/avatars/a.png',
       description: 'bio',
       videos: [],
+      subscriberCount: 0,
+      subscribedByMe: false,
     };
     mockedUserService.getPublicProfile.mockResolvedValueOnce(profile);
 
@@ -85,8 +94,22 @@ describe('usePublicProfile', () => {
   });
 
   it('allows manual refresh', async () => {
-    const profile1 = { id: 1, username: 'alice', displayName: 'A1', videos: [] };
-    const profile2 = { id: 1, username: 'alice', displayName: 'A2', videos: [] };
+    const profile1 = {
+      id: 1,
+      username: 'alice',
+      displayName: 'A1',
+      videos: [],
+      subscriberCount: 0,
+      subscribedByMe: false,
+    };
+    const profile2 = {
+      id: 1,
+      username: 'alice',
+      displayName: 'A2',
+      videos: [],
+      subscriberCount: 0,
+      subscribedByMe: false,
+    };
     mockedUserService.getPublicProfile.mockResolvedValueOnce(profile1).mockResolvedValueOnce(profile2);
 
     const { result } = renderHook(() => usePublicProfile('alice'));
@@ -186,6 +209,33 @@ describe('usePublicProfile', () => {
     expect(result.current.loadMoreError).toBe('Network error');
     expect(result.current.videos.map((v) => v.id)).toEqual([2]);
     expect(result.current.hasMore).toBe(true);
+  });
+
+  it('applies a subscription result to the loaded profile only', async () => {
+    mockedUserService.getPublicProfile.mockResolvedValueOnce(profile);
+    const { result } = renderHook(() => usePublicProfile('alice'));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    act(() => {
+      result.current.applySubscription({ username: 'alice', subscriberCount: 3, subscribedByMe: true });
+    });
+    expect(result.current.profile?.subscriberCount).toBe(3);
+    expect(result.current.profile?.subscribedByMe).toBe(true);
+
+    // A late response for another channel (user navigated away) is ignored
+    act(() => {
+      result.current.applySubscription({ username: 'bob', subscriberCount: 9, subscribedByMe: false });
+    });
+    expect(result.current.profile?.subscriberCount).toBe(3);
+    expect(result.current.profile?.subscribedByMe).toBe(true);
+  });
+
+  it('applySubscription does nothing before the profile is loaded', () => {
+    const { result } = renderHook(() => usePublicProfile(''));
+    act(() => {
+      result.current.applySubscription({ username: 'alice', subscriberCount: 1, subscribedByMe: true });
+    });
+    expect(result.current.profile).toBeNull();
   });
 
   it('does nothing on loadMore without a username', async () => {
