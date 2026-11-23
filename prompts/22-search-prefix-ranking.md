@@ -1,7 +1,7 @@
 # Search ranking: prefix matches first (US-08)
 
-**Approved on:** pending (PR #<n>)
-**Approved by:** team review in PR #<n>
+**Approved on:** 2026-11-11 (PR #29)
+**Approved by:** team review in PR #29
 **Used for:** changing the relevance order of a portable `LIKE` search without full-text search.
 
 ## Prompt

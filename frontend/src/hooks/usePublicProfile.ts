@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import axios from 'axios';
-import { UserProfile } from '../types/user';
+import { SubscriptionStatus, UserProfile } from '../types/user';
 import { VideoSummary } from '../types/video';
 import { userService } from '../services/userService';
 
@@ -20,6 +20,8 @@ interface UsePublicProfileResult {
   loadingMore: boolean;
   loadMoreError: string | null;
   loadMore: () => Promise<void>;
+  /** Applies the result of subscribing/unsubscribing to the loaded profile (count and subscribedByMe). */
+  applySubscription: (status: SubscriptionStatus) => void;
 }
 
 export const usePublicProfile = (username: string | undefined): UsePublicProfileResult => {
@@ -100,6 +102,14 @@ export const usePublicProfile = (username: string | undefined): UsePublicProfile
     fetchProfile();
   }, [fetchProfile]);
 
+  const applySubscription = useCallback((status: SubscriptionStatus) => {
+    setProfile((prev) =>
+      prev && prev.username === status.username
+        ? { ...prev, subscriberCount: status.subscriberCount, subscribedByMe: status.subscribedByMe }
+        : prev
+    );
+  }, []);
+
   return {
     profile,
     loading,
@@ -112,5 +122,6 @@ export const usePublicProfile = (username: string | undefined): UsePublicProfile
     loadingMore,
     loadMoreError,
     loadMore,
+    applySubscription,
   };
 };

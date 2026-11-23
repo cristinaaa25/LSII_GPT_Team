@@ -9,6 +9,7 @@ import com.tecnocampus.LS2.protube_back.dto.UserProfileDto;
 import com.tecnocampus.LS2.protube_back.dto.VideoSummaryDto;
 import com.tecnocampus.LS2.protube_back.exception.InvalidRequestException;
 import com.tecnocampus.LS2.protube_back.exception.NotFoundException;
+import com.tecnocampus.LS2.protube_back.repository.SubscriptionRepository;
 import com.tecnocampus.LS2.protube_back.repository.UserRepository;
 import com.tecnocampus.LS2.protube_back.TestImages;
 import com.tecnocampus.LS2.protube_back.repository.VideoRepository;
@@ -38,6 +39,7 @@ class UserServiceTest {
 
     private UserRepository userRepository;
     private VideoRepository videoRepository;
+    private SubscriptionRepository subscriptionRepository;
     private UserService userService;
     private Path tempStoreDir;
 
@@ -45,8 +47,10 @@ class UserServiceTest {
     void setUp(@TempDir Path tempDir) {
         userRepository = mock(UserRepository.class);
         videoRepository = mock(VideoRepository.class);
+        subscriptionRepository = mock(SubscriptionRepository.class);
         tempStoreDir = tempDir;
-        userService = new UserService(userRepository, videoRepository, tempStoreDir.toString() + "/");
+        userService = new UserService(userRepository, videoRepository, subscriptionRepository,
+                tempStoreDir.toString() + "/");
     }
 
     @Test
@@ -72,6 +76,27 @@ class UserServiceTest {
         assertThat(result.description()).isEqualTo("Bio of Alice");
         assertThat(result.videos()).hasSize(2);
         assertThat(result.videos().get(0).title()).isEqualTo("Video 1");
+    }
+
+    @Test
+    void getPublicProfileIncludesSubscriberCountAndSubscribedByMe() {
+        User user = new User("alice", "alice@example.com", "hash");
+        user.setId(10L);
+        when(userRepository.findByUsername("alice")).thenReturn(Optional.of(user));
+        when(videoRepository.findByUploaderId(eq(10L), any(Pageable.class))).thenReturn(new PageImpl<>(List.of()));
+        when(subscriptionRepository.countByChannelId(10L)).thenReturn(4L);
+        when(subscriptionRepository.existsBySubscriberUsernameAndChannelId("bob", 10L)).thenReturn(true);
+
+        UserProfileDto anonymous = userService.getPublicProfile("alice");
+        assertThat(anonymous.subscriberCount()).isEqualTo(4L);
+        assertThat(anonymous.subscribedByMe()).isFalse();
+
+        assertThat(userService.getPublicProfile("alice", "bob").subscribedByMe()).isTrue();
+        assertThat(userService.getPublicProfile("alice", "carol").subscribedByMe()).isFalse();
+
+        // Own profile: never subscribed, and no query needed
+        assertThat(userService.getPublicProfile("alice", "alice").subscribedByMe()).isFalse();
+        verify(subscriptionRepository, never()).existsBySubscriberUsernameAndChannelId("alice", 10L);
     }
 
     @Test

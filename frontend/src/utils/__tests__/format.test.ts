@@ -1,4 +1,19 @@
-import { formatChartDate, formatDate, formatDuration, formatViews, resolveAvatarUrl } from '../format';
+import {
+  formatChartDate,
+  formatDate,
+  formatDuration,
+  formatSubscribers,
+  formatViews,
+  resolveAvatarUrl,
+} from '../format';
+
+describe('formatSubscribers', () => {
+  it('uses the singular only for one', () => {
+    expect(formatSubscribers(0)).toBe('0 subscribers');
+    expect(formatSubscribers(1)).toBe('1 subscriber');
+    expect(formatSubscribers(12)).toBe('12 subscribers');
+  });
+});
 
 describe('formatDuration', () => {
   it('formats minutes and seconds', () => {

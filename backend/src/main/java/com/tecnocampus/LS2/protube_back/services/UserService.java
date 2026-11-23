@@ -8,6 +8,7 @@ import com.tecnocampus.LS2.protube_back.dto.UserProfileDto;
 import com.tecnocampus.LS2.protube_back.dto.VideoSummaryDto;
 import com.tecnocampus.LS2.protube_back.exception.InvalidRequestException;
 import com.tecnocampus.LS2.protube_back.exception.NotFoundException;
+import com.tecnocampus.LS2.protube_back.repository.SubscriptionRepository;
 import com.tecnocampus.LS2.protube_back.repository.UserRepository;
 import com.tecnocampus.LS2.protube_back.repository.VideoRepository;
 import org.slf4j.Logger;
@@ -50,20 +51,33 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final VideoRepository videoRepository;
+    private final SubscriptionRepository subscriptionRepository;
     private final String storeDir;
 
     @Autowired
     public UserService(
             UserRepository userRepository,
             VideoRepository videoRepository,
+            SubscriptionRepository subscriptionRepository,
             @Value("${pro_tube.store.dir:target/test-store/}") String storeDir) {
         this.userRepository = userRepository;
         this.videoRepository = videoRepository;
+        this.subscriptionRepository = subscriptionRepository;
         this.storeDir = storeDir != null ? storeDir : "target/test-store/";
     }
 
+    /** Public profile as seen by an anonymous visitor ({@code subscribedByMe} is always false). */
     @Transactional(readOnly = true)
     public UserProfileDto getPublicProfile(String username) {
+        return getPublicProfile(username, null);
+    }
+
+    /**
+     * Public profile as seen by {@code viewerUsername}, or by an anonymous visitor when it is null (no token, or an
+     * invalid or expired one: the JWT filter then leaves the request unauthenticated).
+     */
+    @Transactional(readOnly = true)
+    public UserProfileDto getPublicProfile(String username, String viewerUsername) {
         if (username == null || username.isBlank()) {
             throw new InvalidRequestException("Username must not be empty");
         }
@@ -76,13 +90,21 @@ public class UserService {
                 .map(VideoService::toSummary)
                 .getContent();
 
+        long subscriberCount = subscriptionRepository.countByChannelId(user.getId());
+        // One query by username (no extra user lookup); never true on your own profile (V6 forbids it anyway)
+        boolean subscribedByMe = viewerUsername != null
+                && !viewerUsername.equals(user.getUsername())
+                && subscriptionRepository.existsBySubscriberUsernameAndChannelId(viewerUsername, user.getId());
+
         return new UserProfileDto(
                 user.getId(),
                 user.getUsername(),
                 user.getDisplayName(),
                 user.getAvatarUrl(),
                 user.getDescription(),
-                videoDtos
+                videoDtos,
+                subscriberCount,
+                subscribedByMe
         );
     }
 

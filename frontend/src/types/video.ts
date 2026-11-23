@@ -23,6 +23,10 @@ export interface VideoDetail {
   videoUrl?: string;
   thumbnailUrl?: string;
   likedByMe?: boolean;
+  /** Subscribers of the author's channel. */
+  authorSubscriberCount?: number;
+  /** Whether the current user is subscribed to the author (false when logged out or on your own video). */
+  subscribedByMe?: boolean;
 }
 
 export interface VideoLikeResponse {

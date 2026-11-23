@@ -12,6 +12,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import ProfilePage from './components/ProfilePage';
 import PublicProfilePage from './components/PublicProfilePage';
 import AnalyticsPage from './components/AnalyticsPage';
+import SubscriptionsPage from './components/SubscriptionsPage';
 import AuthCallbackPage from './components/AuthCallbackPage';
 import { AuthProvider } from './context/AuthProvider';
 
@@ -49,6 +50,14 @@ export const AppContent: React.FC = () => {
             element={
               <ProtectedRoute>
                 <AnalyticsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/subscriptions"
+            element={
+              <ProtectedRoute>
+                <SubscriptionsPage />
               </ProtectedRoute>
             }
           />
