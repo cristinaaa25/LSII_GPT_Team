@@ -36,6 +36,6 @@ test.describe('Video Catalog & Playback (US-04, US-05)', () => {
 
     // Verify not found alert is shown
     await expect(page.getByRole('heading', { name: 'Video Not Found' })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Back to catalog' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Back to home' })).toBeVisible();
   });
 });
