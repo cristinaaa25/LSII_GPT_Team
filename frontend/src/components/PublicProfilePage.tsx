@@ -3,11 +3,8 @@ import { useParams, Link } from 'react-router-dom';
 import { usePublicProfile } from '../hooks/usePublicProfile';
 import VideoCard from './VideoCard';
 import NotFoundPage from './NotFoundPage';
-import { resolveAvatarUrl } from '../utils/format';
-
 import SubscribeButton from './SubscribeButton';
 import { formatSubscribers, resolveAvatarUrl } from '../utils/format';
-
 
 export const PublicProfilePage: React.FC = () => {
   const { username } = useParams<{ username: string }>();

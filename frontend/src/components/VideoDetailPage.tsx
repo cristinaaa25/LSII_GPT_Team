@@ -3,9 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import CommentSection from './CommentSection';
 import VideoEditForm from './VideoEditForm';
 import NotFoundPage from './NotFoundPage';
-
 import SubscribeButton from './SubscribeButton';
-
 import { AuthContext } from '../context/AuthContext';
 import { useVideoDetail } from '../hooks/useVideoDetail';
 import { videoService } from '../services/videoService';
