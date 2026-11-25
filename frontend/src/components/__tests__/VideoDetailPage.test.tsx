@@ -571,6 +571,44 @@ describe('VideoDetailPage', () => {
       expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument();
     });
 
+    it('renders Save link when anonymous and Save button dropdown when authenticated', async () => {
+      mockVideoResponse();
+      const { unmount } = renderAs(null);
+      await screen.findByRole('heading', { level: 1, name: sampleVideo.title });
+      expect(screen.getByRole('link', { name: 'Save' })).toHaveAttribute('href', '/login');
+      unmount();
+
+      mockedGet.mockImplementation((url: string) => {
+        if (typeof url === 'string' && url.includes('/comments')) {
+          return Promise.resolve({
+            data: { content: [], page: 0, size: 10, totalElements: 0, totalPages: 1, last: true },
+          });
+        }
+        if (typeof url === 'string' && url.includes('/users/me/playlists')) {
+          return Promise.resolve({
+            data: [
+              {
+                id: 1,
+                name: 'Watch later',
+                watchLater: true,
+                videoCount: 0,
+                containsVideo: false,
+                createdAt: '2026-11-25T10:00:00Z',
+              },
+            ],
+          });
+        }
+        return Promise.resolve({ data: sampleVideo });
+      });
+
+      renderAs('alice');
+      const saveBtn = await screen.findByRole('button', { name: 'Save' });
+      await act(async () => {
+        fireEvent.click(saveBtn);
+      });
+      expect(await screen.findByLabelText(/Watch later/i)).toBeInTheDocument();
+    });
+
     it('renders Delete button next to Edit for video owner', async () => {
       mockVideoResponse();
       renderAs(sampleVideo.author);

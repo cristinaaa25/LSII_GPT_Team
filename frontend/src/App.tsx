@@ -14,6 +14,8 @@ import PublicProfilePage from './components/PublicProfilePage';
 import AnalyticsPage from './components/AnalyticsPage';
 import SubscriptionsPage from './components/SubscriptionsPage';
 import HistoryPage from './components/HistoryPage';
+import PlaylistsPage from './components/PlaylistsPage';
+import PlaylistDetailPage from './components/PlaylistDetailPage';
 import AuthCallbackPage from './components/AuthCallbackPage';
 import NotFoundPage from './components/NotFoundPage';
 import { AuthProvider } from './context/AuthProvider';
@@ -68,6 +70,22 @@ export const AppContent: React.FC = () => {
             element={
               <ProtectedRoute>
                 <HistoryPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/playlists"
+            element={
+              <ProtectedRoute>
+                <PlaylistsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/playlists/:id"
+            element={
+              <ProtectedRoute>
+                <PlaylistDetailPage />
               </ProtectedRoute>
             }
           />

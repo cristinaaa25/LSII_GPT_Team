@@ -111,6 +111,11 @@ export const Header: React.FC = () => {
                       </Link>
                     </li>
                     <li>
+                      <Link to="/playlists" className="dropdown-item" onClick={() => setDropdownOpen(false)}>
+                        Playlists
+                      </Link>
+                    </li>
+                    <li>
                       <Link to="/analytics" className="dropdown-item" onClick={() => setDropdownOpen(false)}>
                         Analytics
                       </Link>

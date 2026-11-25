@@ -3,6 +3,8 @@ package com.tecnocampus.LS2.protube_back.controller;
 import com.tecnocampus.LS2.protube_back.dto.ChannelDto;
 import com.tecnocampus.LS2.protube_back.dto.HistoryVideoDto;
 import com.tecnocampus.LS2.protube_back.dto.PageDto;
+import com.tecnocampus.LS2.protube_back.dto.PlaylistRequestDto;
+import com.tecnocampus.LS2.protube_back.dto.PlaylistSummaryDto;
 import com.tecnocampus.LS2.protube_back.dto.SubscriptionStatusDto;
 import com.tecnocampus.LS2.protube_back.dto.UpdateProfileRequestDto;
 import com.tecnocampus.LS2.protube_back.dto.UserAnalyticsDto;
@@ -11,6 +13,7 @@ import com.tecnocampus.LS2.protube_back.dto.UserProfileDto;
 import com.tecnocampus.LS2.protube_back.dto.VideoSummaryDto;
 import com.tecnocampus.LS2.protube_back.services.AnalyticsService;
 import com.tecnocampus.LS2.protube_back.services.HistoryService;
+import com.tecnocampus.LS2.protube_back.services.PlaylistService;
 import com.tecnocampus.LS2.protube_back.services.SubscriptionService;
 import com.tecnocampus.LS2.protube_back.services.UserService;
 import jakarta.validation.Valid;
@@ -20,6 +23,7 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.net.URI;
 import java.security.Principal;
 import java.util.List;
 
@@ -31,13 +35,16 @@ public class UserController {
     private final AnalyticsService analyticsService;
     private final SubscriptionService subscriptionService;
     private final HistoryService historyService;
+    private final PlaylistService playlistService;
 
     public UserController(UserService userService, AnalyticsService analyticsService,
-                          SubscriptionService subscriptionService, HistoryService historyService) {
+                          SubscriptionService subscriptionService, HistoryService historyService,
+                          PlaylistService playlistService) {
         this.userService = userService;
         this.analyticsService = analyticsService;
         this.subscriptionService = subscriptionService;
         this.historyService = historyService;
+        this.playlistService = playlistService;
     }
 
     @GetMapping("/me")
@@ -117,6 +124,29 @@ public class UserController {
         }
         historyService.clearHistory(principal.getName());
         return ResponseEntity.noContent().build();
+    }
+
+    /** Current user's playlists ("Watch later" first, created on first use). */
+    @GetMapping("/me/playlists")
+    public ResponseEntity<List<PlaylistSummaryDto>> getMyPlaylists(
+            @RequestParam(value = "videoId", required = false) Long videoId,
+            Principal principal) {
+        if (principal == null) {
+            throw new BadCredentialsException("Authentication required");
+        }
+        return ResponseEntity.ok(playlistService.getMyPlaylists(principal.getName(), videoId));
+    }
+
+    /** Creates a custom private playlist for the current user. */
+    @PostMapping("/me/playlists")
+    public ResponseEntity<PlaylistSummaryDto> createMyPlaylist(
+            @Valid @RequestBody PlaylistRequestDto request,
+            Principal principal) {
+        if (principal == null) {
+            throw new BadCredentialsException("Authentication required");
+        }
+        PlaylistSummaryDto created = playlistService.createPlaylist(principal.getName(), request.name());
+        return ResponseEntity.created(URI.create("/api/playlists/" + created.id())).body(created);
     }
 
     /** Public; {@code subscribedByMe} is false when the request carries no valid token. */
