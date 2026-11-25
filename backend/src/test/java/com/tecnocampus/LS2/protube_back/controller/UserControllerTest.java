@@ -7,6 +7,7 @@ import com.tecnocampus.LS2.protube_back.exception.InvalidRequestException;
 import com.tecnocampus.LS2.protube_back.exception.NotFoundException;
 import com.tecnocampus.LS2.protube_back.security.RestAuthenticationEntryPoint;
 import com.tecnocampus.LS2.protube_back.services.AnalyticsService;
+import com.tecnocampus.LS2.protube_back.services.HistoryService;
 import com.tecnocampus.LS2.protube_back.services.SubscriptionService;
 import com.tecnocampus.LS2.protube_back.services.UserService;
 import org.junit.jupiter.api.Test;
@@ -54,6 +55,9 @@ class UserControllerTest {
 
     @MockBean
     SubscriptionService subscriptionService;
+
+    @MockBean
+    HistoryService historyService;
 
     @Test
     void getPublicProfileReturns200ForUnauthenticatedUser() throws Exception {
@@ -109,6 +113,8 @@ class UserControllerTest {
         mockMvc.perform(delete("/api/users/alice/subscription")).andExpect(status().isUnauthorized());
         mockMvc.perform(get("/api/users/me/subscriptions")).andExpect(status().isUnauthorized());
         mockMvc.perform(get("/api/users/me/feed")).andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/users/me/history")).andExpect(status().isUnauthorized());
+        mockMvc.perform(delete("/api/users/me/history")).andExpect(status().isUnauthorized());
     }
 
     @Test
@@ -141,6 +147,26 @@ class UserControllerTest {
                 .andExpect(jsonPath("$.content[0].id").value(7))
                 .andExpect(jsonPath("$.page").value(1))
                 .andExpect(jsonPath("$.last").value(true));
+    }
+
+    @Test
+    @WithMockUser(username = "bob")
+    void getAndClearMyHistoryReturn200And204() throws Exception {
+        var item = new HistoryVideoDto(9L, "Watched", "alice", 15.0, 3L, "thumb.webp",
+                Instant.parse("2026-11-24T18:30:00Z"));
+        when(historyService.getHistory("bob", 0, 12))
+                .thenReturn(new PageDto<>(List.of(item), 0, 12, 1, 1, true));
+
+        mockMvc.perform(get("/api/users/me/history"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].id").value(9))
+                .andExpect(jsonPath("$.content[0].title").value("Watched"))
+                .andExpect(jsonPath("$.content[0].lastViewedAt").value("2026-11-24T18:30:00Z"))
+                .andExpect(jsonPath("$.totalElements").value(1));
+
+        mockMvc.perform(delete("/api/users/me/history"))
+                .andExpect(status().isNoContent());
+        verify(historyService).clearHistory("bob");
     }
 
     @Test
@@ -285,7 +311,7 @@ class UserControllerTest {
 
     @Test
     void directControllerCallsThrowBadCredentialsWhenPrincipalNull() {
-        UserController controller = new UserController(userService, analyticsService, subscriptionService);
+        UserController controller = new UserController(userService, analyticsService, subscriptionService, historyService);
         assertThatThrownBy(() -> controller.getMe(null))
                 .isInstanceOf(BadCredentialsException.class)
                 .hasMessage("Authentication required");
@@ -306,6 +332,8 @@ class UserControllerTest {
         assertThatThrownBy(() -> controller.unsubscribe("alice", null)).isInstanceOf(BadCredentialsException.class);
         assertThatThrownBy(() -> controller.getMySubscriptions(null)).isInstanceOf(BadCredentialsException.class);
         assertThatThrownBy(() -> controller.getMyFeed(0, 12, null)).isInstanceOf(BadCredentialsException.class);
+        assertThatThrownBy(() -> controller.getMyHistory(0, 12, null)).isInstanceOf(BadCredentialsException.class);
+        assertThatThrownBy(() -> controller.clearMyHistory(null)).isInstanceOf(BadCredentialsException.class);
     }
 
     @Test

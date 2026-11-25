@@ -3,7 +3,7 @@ import { getEnv } from '../utils/Env';
 import { authService } from './authService';
 import { User } from '../types/auth';
 import { Channel, SubscriptionStatus, UpdateProfilePayload, UserProfile } from '../types/user';
-import { Page, VideoSummary } from '../types/video';
+import { HistoryVideo, Page, VideoSummary } from '../types/video';
 
 /** Authorization header with the stored token, or no header at all when logged out. */
 const authHeaders = (): Record<string, string> => {
@@ -80,5 +80,21 @@ export const userService = {
       headers: authHeaders(),
     });
     return res.data;
+  },
+
+  /** One page of the current user's watch history, most recent view first. */
+  getMyHistory: async (page: number, size: number): Promise<Page<HistoryVideo>> => {
+    const res = await axios.get<Page<HistoryVideo>>(`${getEnv().API_BASE_URL}/users/me/history`, {
+      params: { page, size },
+      headers: authHeaders(),
+    });
+    return res.data;
+  },
+
+  /** Clears the current user's watch history without changing video view counts. */
+  clearMyHistory: async (): Promise<void> => {
+    await axios.delete(`${getEnv().API_BASE_URL}/users/me/history`, {
+      headers: authHeaders(),
+    });
   },
 };

@@ -3,6 +3,7 @@ import {
   formatDate,
   formatDuration,
   formatSubscribers,
+  formatTimeAgo,
   formatViews,
   resolveAvatarUrl,
 } from '../format';
@@ -83,5 +84,27 @@ describe('formatChartDate', () => {
     expect(formatChartDate('Nov')).toBe('Nov');
     expect(formatChartDate(null)).toBe('');
     expect(formatChartDate(undefined)).toBe('');
+  });
+});
+
+describe('formatTimeAgo', () => {
+  const now = Date.parse('2026-11-25T12:00:00Z');
+
+  it('formats relative durations from seconds up to years', () => {
+    expect(formatTimeAgo('2026-11-25T11:59:30Z', now)).toBe('just now');
+    expect(formatTimeAgo('2026-11-25T11:59:00Z', now)).toBe('1 minute ago');
+    expect(formatTimeAgo('2026-11-25T11:55:00Z', now)).toBe('5 minutes ago');
+    expect(formatTimeAgo('2026-11-25T11:00:00Z', now)).toBe('1 hour ago');
+    expect(formatTimeAgo('2026-11-25T09:00:00Z', now)).toBe('3 hours ago');
+    expect(formatTimeAgo('2026-11-24T12:00:00Z', now)).toBe('1 day ago');
+    expect(formatTimeAgo('2026-11-21T12:00:00Z', now)).toBe('4 days ago');
+    expect(formatTimeAgo('2026-10-20T12:00:00Z', now)).toBe('1 month ago');
+    expect(formatTimeAgo('2025-11-20T12:00:00Z', now)).toBe('1 year ago');
+  });
+
+  it('returns empty string for missing or invalid dates', () => {
+    expect(formatTimeAgo(null, now)).toBe('');
+    expect(formatTimeAgo(undefined, now)).toBe('');
+    expect(formatTimeAgo('not-a-date', now)).toBe('');
   });
 });

@@ -90,6 +90,41 @@ describe('userService', () => {
     });
   });
 
+  it('fetches and clears watch history with the token', async () => {
+    authService.setToken('bob-token');
+    const page = {
+      content: [
+        {
+          id: 9,
+          title: 'Watched',
+          author: 'alice',
+          duration: 30,
+          views: 4,
+          thumbnail: '9.webp',
+          lastViewedAt: '2026-11-24T10:00:00Z',
+        },
+      ],
+      page: 0,
+      size: 12,
+      totalElements: 1,
+      totalPages: 1,
+      last: true,
+    };
+    mockedAxios.get.mockResolvedValueOnce({ data: page });
+    mockedAxios.delete.mockResolvedValueOnce({});
+
+    await expect(userService.getMyHistory(0, 12)).resolves.toEqual(page);
+    await expect(userService.clearMyHistory()).resolves.toBeUndefined();
+
+    expect(mockedAxios.get).toHaveBeenCalledWith('other/users/me/history', {
+      params: { page: 0, size: 12 },
+      headers: { Authorization: 'Bearer bob-token' },
+    });
+    expect(mockedAxios.delete).toHaveBeenCalledWith('other/users/me/history', {
+      headers: { Authorization: 'Bearer bob-token' },
+    });
+  });
+
   it('fetches one page of a user public videos', async () => {
     const page = { content: [], page: 1, size: 12, totalElements: 13, totalPages: 2, last: true };
     mockedAxios.get.mockResolvedValueOnce({ data: page });
