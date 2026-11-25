@@ -30,3 +30,6 @@ Follow AGENTS.md, backend/AGENTS.md and frontend/AGENTS.md.
   the validated content type: an SVG on our origin can run scripts and read the JWT from localStorage.
 - The runtime image needs ffmpeg for upload thumbnails; a missing binary only showed up as `null` fields, so
   external tools must log a WARN when they cannot run, and their output must be redirected (not left in a pipe).
+- Reused in `task/sprint-4-review-fixes` for the findings of PRs #30, #31, #33 and #36. React state updaters
+  must be pure (StrictMode runs them twice in development): never call another `setState` inside one. Shared
+  counters must be updated in the database (`SET n = n + 1`), not read and written back from Java.

@@ -1,4 +1,4 @@
-import { useCallback, useContext, useEffect, useState } from 'react';
+import { useCallback, useContext, useEffect, useRef, useState } from 'react';
 import axios from 'axios';
 import { AuthContext } from '../context/AuthContext';
 import type { Comment, CommentLikeResponse, CommentsPage } from '../types/comment';
@@ -24,6 +24,11 @@ interface UseCommentsReturn {
 
 export function useComments(videoId: number | string | undefined): UseCommentsReturn {
   const [comments, setComments] = useState<Comment[]>([]);
+  // Latest comments for callbacks that need to read them without being recreated on every change
+  const commentsRef = useRef<Comment[]>(comments);
+  useEffect(() => {
+    commentsRef.current = comments;
+  }, [comments]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState<number>(0);
@@ -162,30 +167,22 @@ export function useComments(videoId: number | string | undefined): UseCommentsRe
         headers: getAuthHeaders(),
       });
 
-      setComments((prev) => {
-        const rootIndex = prev.findIndex((c) => c.id === commentId);
-        if (rootIndex !== -1) {
-          const root = prev[rootIndex];
-          const repliesCount = root.replies ? root.replies.length : 0;
-          const removedCount = 1 + repliesCount;
-          setTotalElements((te) => Math.max(0, te - removedCount));
-          setAddedCount((ac) => ac - removedCount);
-          return prev.filter((c) => c.id !== commentId);
-        }
+      // Counted outside the setComments updater: updaters must be pure because React may run them twice
+      // (StrictMode does in development), which would subtract the counters twice.
+      const root = commentsRef.current.find((c) => c.id === commentId);
+      const removedCount = root ? 1 + (root.replies ? root.replies.length : 0) : 1;
 
-        // It is a reply
-        setTotalElements((te) => Math.max(0, te - 1));
-        setAddedCount((ac) => ac - 1);
-        return prev.map((c) => {
-          if (c.replies && c.replies.some((r) => r.id === commentId)) {
-            return {
-              ...c,
-              replies: c.replies.filter((r) => r.id !== commentId),
-            };
-          }
-          return c;
-        });
-      });
+      setComments((prev) =>
+        root
+          ? prev.filter((c) => c.id !== commentId)
+          : prev.map((c) =>
+              c.replies && c.replies.some((r) => r.id === commentId)
+                ? { ...c, replies: c.replies.filter((r) => r.id !== commentId) }
+                : c
+            )
+      );
+      setTotalElements((te) => Math.max(0, te - removedCount));
+      setAddedCount((ac) => ac - removedCount);
     },
     [getAuthHeaders]
   );

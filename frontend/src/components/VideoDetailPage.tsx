@@ -29,6 +29,7 @@ const VideoDetailPage: React.FC = () => {
   const [userLiked, setUserLiked] = useState<boolean | null>(null);
   const [likeOffset, setLikeOffset] = useState<number>(0);
   const [likeError, setLikeError] = useState<string | null>(null);
+  const [likePending, setLikePending] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -72,7 +73,8 @@ const VideoDetailPage: React.FC = () => {
   };
 
   const handleToggleLike = async () => {
-    if (!video || video.id === undefined) return;
+    // One request at a time: fast clicks could otherwise reach the server out of order
+    if (!video || video.id === undefined || likePending) return;
     const prevLiked = liked;
     const prevOffset = likeOffset;
 
@@ -82,6 +84,7 @@ const VideoDetailPage: React.FC = () => {
     setUserLiked(newLiked);
     setLikeOffset(newOffset);
     setLikeError(null);
+    setLikePending(true);
 
     try {
       if (newLiked) {
@@ -93,6 +96,8 @@ const VideoDetailPage: React.FC = () => {
       setUserLiked(prevLiked);
       setLikeOffset(prevOffset);
       setLikeError(err instanceof Error ? err.message : 'Failed to update like');
+    } finally {
+      setLikePending(false);
     }
   };
   const videoSrc = resolveMediaUrl(video?.videoUrl, `${id}.mp4`);
@@ -213,6 +218,7 @@ const VideoDetailPage: React.FC = () => {
                 className={`btn btn-sm ${liked ? 'btn-primary' : 'btn-outline-secondary'}`}
                 aria-pressed={liked}
                 onClick={handleToggleLike}
+                disabled={likePending}
                 aria-label={liked ? 'Unlike video' : 'Like video'}
               >
                 👍 <span className="badge bg-secondary ms-1">{likeCount} likes</span>

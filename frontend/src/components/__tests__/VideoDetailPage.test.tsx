@@ -451,6 +451,31 @@ describe('VideoDetailPage', () => {
       );
     });
 
+    it('ignores clicks while a like request is pending', async () => {
+      mockVideoResponse({ ...sampleVideo, likedByMe: false, likes: 10 });
+      let resolvePut: (value: unknown) => void = () => {};
+      mockedPut.mockReturnValueOnce(new Promise((resolve) => (resolvePut = resolve)));
+      renderAs('alice');
+
+      const likeButton = await screen.findByRole('button', { name: 'Like video' });
+      await act(async () => {
+        fireEvent.click(likeButton);
+      });
+
+      expect(likeButton).toBeDisabled();
+      await act(async () => {
+        fireEvent.click(likeButton);
+      });
+      expect(mockedPut).toHaveBeenCalledTimes(1);
+      expect(mockedDelete).not.toHaveBeenCalled();
+
+      await act(async () => {
+        resolvePut({ data: { videoId: 42, likeCount: 11, likedByMe: true } });
+      });
+      expect(likeButton).toBeEnabled();
+      expect(likeButton).toHaveTextContent('11 likes');
+    });
+
     it('optimistically decrements count and sets aria-pressed="false" on unlike', async () => {
       mockVideoResponse({ ...sampleVideo, likedByMe: true, likes: 10 });
       mockedDelete.mockResolvedValueOnce({ data: { videoId: 42, likeCount: 9, likedByMe: false } });

@@ -1,3 +1,4 @@
+import { createElement, StrictMode, type ReactNode } from 'react';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import axios from 'axios';
 import { useComments } from '../useComments';
@@ -292,5 +293,22 @@ describe('useComments hook', () => {
     expect(result.current.comments).toHaveLength(0);
     expect(result.current.addedCount).toBe(-2);
     expect(result.current.totalElements).toBe(0);
+  });
+
+  it('subtracts the counters only once under StrictMode', async () => {
+    mockedGet.mockResolvedValueOnce({ data: { ...mockPage, totalElements: 5 } });
+    mockedDelete.mockResolvedValueOnce({ status: 204 });
+    const wrapper = ({ children }: { children: ReactNode }) => createElement(StrictMode, null, children);
+
+    const { result } = renderHook(() => useComments(42), { wrapper });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    await act(async () => {
+      await result.current.deleteComment(2);
+    });
+
+    expect(result.current.comments[0].replies).toHaveLength(0);
+    expect(result.current.addedCount).toBe(-1);
+    expect(result.current.totalElements).toBe(4);
   });
 });
