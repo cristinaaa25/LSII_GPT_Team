@@ -221,7 +221,7 @@ describe('VideoDetailPage', () => {
     expect(
       screen.getByText('The video you are looking for does not exist or may have been removed.')
     ).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Back to catalog' })).toHaveAttribute('href', '/');
+    expect(screen.getByRole('link', { name: 'Back to home' })).toHaveAttribute('href', '/');
     expect(screen.queryByLabelText('Amazing Nature')).not.toBeInTheDocument();
   });
 

@@ -2,6 +2,7 @@ import React, { useContext, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import CommentSection from './CommentSection';
 import VideoEditForm from './VideoEditForm';
+import NotFoundPage from './NotFoundPage';
 import SubscribeButton from './SubscribeButton';
 import { AuthContext } from '../context/AuthContext';
 import { useVideoDetail } from '../hooks/useVideoDetail';
@@ -128,13 +129,10 @@ const VideoDetailPage: React.FC = () => {
 
   if (notFound || !video) {
     return (
-      <div className="alert alert-warning my-4 text-center" role="alert">
-        <h2 className="h4 alert-heading">Video Not Found</h2>
-        <p className="mb-3">The video you are looking for does not exist or may have been removed.</p>
-        <Link to="/" className="btn btn-primary">
-          Back to catalog
-        </Link>
-      </div>
+      <NotFoundPage
+        title="Video Not Found"
+        message="The video you are looking for does not exist or may have been removed."
+      />
     );
   }
 

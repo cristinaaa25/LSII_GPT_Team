@@ -15,6 +15,7 @@ import AnalyticsPage from './components/AnalyticsPage';
 import SubscriptionsPage from './components/SubscriptionsPage';
 import HistoryPage from './components/HistoryPage';
 import AuthCallbackPage from './components/AuthCallbackPage';
+import NotFoundPage from './components/NotFoundPage';
 import { AuthProvider } from './context/AuthProvider';
 
 interface AppProps {
@@ -74,6 +75,7 @@ export const AppContent: React.FC = () => {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/auth/callback" element={<AuthCallbackPage />} />
+          <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </main>
     </div>
