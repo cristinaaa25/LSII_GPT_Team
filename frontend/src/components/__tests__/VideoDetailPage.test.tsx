@@ -298,6 +298,102 @@ describe('VideoDetailPage', () => {
     });
   });
 
+  describe('author subscription', () => {
+    const subscriptionUrl = 'other/users/David%20Attenborough/subscription';
+
+    it('shows the author subscriber count and a Subscribe link to /login for anonymous users', async () => {
+      mockVideoResponse({ ...sampleVideo, authorSubscriberCount: 4, subscribedByMe: false });
+      renderAs(null);
+
+      expect(await screen.findByText('4 subscribers')).toBeInTheDocument();
+      const link = screen.getByRole('link', { name: 'Subscribe' });
+      expect(link).toHaveAttribute('href', '/login');
+      fireEvent.click(link);
+      expect(screen.getByText('Login Page')).toBeInTheDocument();
+    });
+
+    it('defaults to 0 subscribers when the response has no channel data', async () => {
+      renderAs(null);
+      expect(await screen.findByText('0 subscribers')).toBeInTheDocument();
+    });
+
+    it('hides the button on your own video', async () => {
+      mockVideoResponse({ ...sampleVideo, authorSubscriberCount: 1, subscribedByMe: false });
+      renderAs('David Attenborough');
+
+      expect(await screen.findByText('1 subscriber')).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Subscribe', exact: true })).not.toBeInTheDocument();
+      expect(screen.queryByRole('link', { name: 'Subscribe' })).not.toBeInTheDocument();
+    });
+
+    it('subscribes to the author and updates count and state from the response', async () => {
+      mockVideoResponse({ ...sampleVideo, authorSubscriberCount: 4, subscribedByMe: false });
+      mockedPut.mockResolvedValueOnce({
+        data: { username: 'David Attenborough', subscriberCount: 5, subscribedByMe: true },
+      });
+      renderAs('alice');
+
+      const button = await screen.findByRole('button', { name: 'Subscribe' });
+      expect(button).toHaveAttribute('aria-pressed', 'false');
+      await act(async () => {
+        fireEvent.click(button);
+      });
+
+      expect(mockedPut).toHaveBeenCalledWith(subscriptionUrl, null, { headers: { Authorization: 'Bearer jwt' } });
+      expect(screen.getByRole('button', { name: 'Subscribed' })).toHaveAttribute('aria-pressed', 'true');
+      expect(screen.getByText('5 subscribers')).toBeInTheDocument();
+      // Likes are untouched
+      expect(screen.getByRole('button', { name: 'Like video' })).toHaveTextContent('350 likes');
+    });
+
+    it('unsubscribes when already subscribed', async () => {
+      mockVideoResponse({ ...sampleVideo, authorSubscriberCount: 1, subscribedByMe: true });
+      mockedDelete.mockResolvedValueOnce({
+        data: { username: 'David Attenborough', subscriberCount: 0, subscribedByMe: false },
+      });
+      renderAs('alice');
+
+      const button = await screen.findByRole('button', { name: 'Subscribed' });
+      await act(async () => {
+        fireEvent.click(button);
+      });
+
+      expect(mockedDelete).toHaveBeenCalledWith(subscriptionUrl, { headers: { Authorization: 'Bearer jwt' } });
+      expect(screen.getByRole('button', { name: 'Subscribe' })).toHaveAttribute('aria-pressed', 'false');
+      expect(screen.getByText('0 subscribers')).toBeInTheDocument();
+    });
+
+    it('ignores a late response for another author', async () => {
+      mockVideoResponse({ ...sampleVideo, authorSubscriberCount: 4, subscribedByMe: false });
+      mockedPut.mockResolvedValueOnce({
+        data: { username: 'someone else', subscriberCount: 99, subscribedByMe: true },
+      });
+      renderAs('alice');
+
+      const button = await screen.findByRole('button', { name: 'Subscribe' });
+      await act(async () => {
+        fireEvent.click(button);
+      });
+
+      expect(screen.getByText('4 subscribers')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Subscribe' })).toHaveAttribute('aria-pressed', 'false');
+    });
+
+    it('shows an error when subscribing fails', async () => {
+      mockVideoResponse({ ...sampleVideo, authorSubscriberCount: 4, subscribedByMe: false });
+      mockedPut.mockRejectedValueOnce(new Error('Server down'));
+      renderAs('alice');
+
+      const button = await screen.findByRole('button', { name: 'Subscribe' });
+      await act(async () => {
+        fireEvent.click(button);
+      });
+
+      expect(screen.getByRole('alert')).toHaveTextContent('Could not update the subscription: Server down');
+      expect(screen.getByText('4 subscribers')).toBeInTheDocument();
+    });
+  });
+
   describe('video likes', () => {
     it('renders a link to /login with like count for anonymous users', async () => {
       renderAs(null);
@@ -353,6 +449,31 @@ describe('VideoDetailPage', () => {
         {},
         expect.objectContaining({ headers: expect.objectContaining({ Authorization: 'Bearer jwt' }) })
       );
+    });
+
+    it('ignores clicks while a like request is pending', async () => {
+      mockVideoResponse({ ...sampleVideo, likedByMe: false, likes: 10 });
+      let resolvePut: (value: unknown) => void = () => {};
+      mockedPut.mockReturnValueOnce(new Promise((resolve) => (resolvePut = resolve)));
+      renderAs('alice');
+
+      const likeButton = await screen.findByRole('button', { name: 'Like video' });
+      await act(async () => {
+        fireEvent.click(likeButton);
+      });
+
+      expect(likeButton).toBeDisabled();
+      await act(async () => {
+        fireEvent.click(likeButton);
+      });
+      expect(mockedPut).toHaveBeenCalledTimes(1);
+      expect(mockedDelete).not.toHaveBeenCalled();
+
+      await act(async () => {
+        resolvePut({ data: { videoId: 42, likeCount: 11, likedByMe: true } });
+      });
+      expect(likeButton).toBeEnabled();
+      expect(likeButton).toHaveTextContent('11 likes');
     });
 
     it('optimistically decrements count and sets aria-pressed="false" on unlike', async () => {

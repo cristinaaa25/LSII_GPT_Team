@@ -89,6 +89,7 @@ describe('Header', () => {
     expect(screen.getByText('alice@example.com')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Profile' })).toHaveAttribute('href', '/profile');
     expect(screen.getByRole('link', { name: 'Analytics' })).toHaveAttribute('href', '/analytics');
+    expect(screen.getByRole('link', { name: 'Subscriptions' })).toHaveAttribute('href', '/subscriptions');
     expect(screen.getByRole('link', { name: 'Public Profile' })).toHaveAttribute('href', '/users/alice');
     const logoutButton = screen.getByRole('button', { name: /Logout/i });
     expect(logoutButton).toBeInTheDocument();
@@ -100,6 +101,11 @@ describe('Header', () => {
     // Reopen menu and click Analytics
     fireEvent.click(userMenuButton);
     fireEvent.click(screen.getByRole('link', { name: 'Analytics' }));
+    expect(screen.queryByText('alice@example.com')).not.toBeInTheDocument();
+
+    // Reopen menu and click Subscriptions
+    fireEvent.click(userMenuButton);
+    fireEvent.click(screen.getByRole('link', { name: 'Subscriptions' }));
     expect(screen.queryByText('alice@example.com')).not.toBeInTheDocument();
 
     // Reopen menu and click Public Profile

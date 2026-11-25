@@ -87,4 +87,57 @@ class CommentRepositoryTest {
         assertThat(saved.equals(new Object())).isFalse();
         assertThat(saved.hashCode()).isEqualTo(saved.getId().hashCode());
     }
+
+    @Test
+    void testDeleteRootCommentCascadesToRepliesAndLikes() {
+        Comment root = entityManager.persistFlushFind(new Comment("Root comment", video, author));
+        User replier = entityManager.persistFlushFind(new User("replier2", "replier2@example.com", "pass"));
+        Comment reply = entityManager.persistFlushFind(new Comment("Reply comment", video, replier, root));
+
+        com.tecnocampus.LS2.protube_back.domain.CommentLike rootLike =
+                entityManager.persistFlushFind(new com.tecnocampus.LS2.protube_back.domain.CommentLike(root, replier));
+        com.tecnocampus.LS2.protube_back.domain.CommentLike replyLike =
+                entityManager.persistFlushFind(new com.tecnocampus.LS2.protube_back.domain.CommentLike(reply, author));
+
+        Long rootId = root.getId();
+        Long replyId = reply.getId();
+        Long rootLikeId = rootLike.getId();
+        Long replyLikeId = replyLike.getId();
+
+        commentRepository.delete(root);
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(commentRepository.findById(rootId)).isEmpty();
+        assertThat(commentRepository.findById(replyId)).isEmpty();
+        assertThat(entityManager.find(com.tecnocampus.LS2.protube_back.domain.CommentLike.class, rootLikeId)).isNull();
+        assertThat(entityManager.find(com.tecnocampus.LS2.protube_back.domain.CommentLike.class, replyLikeId)).isNull();
+    }
+
+    @Test
+    void testDeleteReplyCascadesOnlyToItsLikes() {
+        Comment root = entityManager.persistFlushFind(new Comment("Root comment", video, author));
+        User replier = entityManager.persistFlushFind(new User("replier3", "replier3@example.com", "pass"));
+        Comment reply = entityManager.persistFlushFind(new Comment("Reply comment", video, replier, root));
+
+        com.tecnocampus.LS2.protube_back.domain.CommentLike rootLike =
+                entityManager.persistFlushFind(new com.tecnocampus.LS2.protube_back.domain.CommentLike(root, replier));
+        com.tecnocampus.LS2.protube_back.domain.CommentLike replyLike =
+                entityManager.persistFlushFind(new com.tecnocampus.LS2.protube_back.domain.CommentLike(reply, author));
+
+        Long rootId = root.getId();
+        Long replyId = reply.getId();
+        Long rootLikeId = rootLike.getId();
+        Long replyLikeId = replyLike.getId();
+
+        commentRepository.delete(reply);
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(commentRepository.findById(replyId)).isEmpty();
+        assertThat(entityManager.find(com.tecnocampus.LS2.protube_back.domain.CommentLike.class, replyLikeId)).isNull();
+
+        assertThat(commentRepository.findById(rootId)).isPresent();
+        assertThat(entityManager.find(com.tecnocampus.LS2.protube_back.domain.CommentLike.class, rootLikeId)).isNotNull();
+    }
 }

@@ -243,4 +243,76 @@ class VideoLikeIntegrationTest {
         assertThat(updated.getLikeCount()).isEqualTo(51L);
         assertThat(videoLikeRepository.countByVideoId(video.getId())).isEqualTo(1L);
     }
+
+    @Test
+    void concurrentLikesFromDifferentUsersAreAllCounted() throws Exception {
+        int threads = 8;
+        List<User> likers = new ArrayList<>();
+        for (int i = 0; i < threads; i++) {
+            String suffix = UUID.randomUUID().toString().substring(0, 8);
+            likers.add(userRepository.save(new User("vl_c_" + suffix, "vl_c_" + suffix + "@example.com", "pass")));
+        }
+        ExecutorService executor = Executors.newFixedThreadPool(threads);
+        try {
+            List<Callable<Integer>> tasks = new ArrayList<>();
+            for (User user : likers) {
+                String userToken = jwtService.generateToken(user);
+                tasks.add(() -> mockMvc.perform(put("/api/videos/" + video.getId() + "/like")
+                                .header("Authorization", "Bearer " + userToken))
+                        .andReturn().getResponse().getStatus());
+            }
+            for (Future<Integer> result : executor.invokeAll(tasks)) {
+                assertThat(result.get()).isEqualTo(200);
+            }
+
+            // No lost update: every like is added to the imported count (50)
+            Video updated = videoRepository.findById(video.getId()).orElseThrow();
+            assertThat(updated.getLikeCount()).isEqualTo(50L + threads);
+
+            tasks.clear();
+            for (User user : likers) {
+                String userToken = jwtService.generateToken(user);
+                tasks.add(() -> mockMvc.perform(delete("/api/videos/" + video.getId() + "/like")
+                                .header("Authorization", "Bearer " + userToken))
+                        .andReturn().getResponse().getStatus());
+            }
+            for (Future<Integer> result : executor.invokeAll(tasks)) {
+                assertThat(result.get()).isEqualTo(200);
+            }
+
+            updated = videoRepository.findById(video.getId()).orElseThrow();
+            assertThat(updated.getLikeCount()).isEqualTo(50L);
+        } finally {
+            executor.shutdown();
+            videoLikeRepository.deleteAll();
+            likers.forEach(user -> userRepository.deleteById(user.getId()));
+        }
+    }
+
+    @Test
+    void concurrentDuplicateUnlikesDecrementOnlyOnce() throws Exception {
+        mockMvc.perform(put("/api/videos/" + video.getId() + "/like")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk());
+
+        int threads = 4;
+        ExecutorService executor = Executors.newFixedThreadPool(threads);
+        try {
+            List<Callable<Integer>> tasks = new ArrayList<>();
+            for (int i = 0; i < threads; i++) {
+                tasks.add(() -> mockMvc.perform(delete("/api/videos/" + video.getId() + "/like")
+                                .header("Authorization", "Bearer " + token))
+                        .andReturn().getResponse().getStatus());
+            }
+            for (Future<Integer> result : executor.invokeAll(tasks)) {
+                assertThat(result.get()).isEqualTo(200);
+            }
+        } finally {
+            executor.shutdown();
+        }
+
+        Video updated = videoRepository.findById(video.getId()).orElseThrow();
+        assertThat(updated.getLikeCount()).isEqualTo(50L);
+        assertThat(videoLikeRepository.existsByVideoIdAndUserId(video.getId(), liker.getId())).isFalse();
+    }
 }

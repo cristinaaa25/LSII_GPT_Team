@@ -14,6 +14,7 @@ import com.tecnocampus.LS2.protube_back.exception.ForbiddenException;
 import com.tecnocampus.LS2.protube_back.exception.InvalidRequestException;
 import com.tecnocampus.LS2.protube_back.exception.NotFoundException;
 import com.tecnocampus.LS2.protube_back.repository.CommentRepository;
+import com.tecnocampus.LS2.protube_back.repository.SubscriptionRepository;
 import com.tecnocampus.LS2.protube_back.repository.UserRepository;
 import com.tecnocampus.LS2.protube_back.repository.VideoLikeRepository;
 import com.tecnocampus.LS2.protube_back.repository.VideoRepository;
@@ -36,7 +37,6 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.util.Optional;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -81,6 +81,7 @@ public class VideoService {
     private final VideoViewRepository videoViewRepository;
     private final VideoLikeRepository videoLikeRepository;
     private final UserRepository userRepository;
+    private final SubscriptionRepository subscriptionRepository;
     private final String storeDir;
 
     @Autowired
@@ -90,13 +91,26 @@ public class VideoService {
             VideoViewRepository videoViewRepository,
             VideoLikeRepository videoLikeRepository,
             UserRepository userRepository,
+            SubscriptionRepository subscriptionRepository,
             @Value("${pro_tube.store.dir:target/test-store/}") String storeDir) {
         this.videoRepository = videoRepository;
         this.commentRepository = commentRepository;
         this.videoViewRepository = videoViewRepository;
         this.videoLikeRepository = videoLikeRepository;
         this.userRepository = userRepository;
+        this.subscriptionRepository = subscriptionRepository;
         this.storeDir = storeDir != null ? storeDir : "target/test-store/";
+    }
+
+    public VideoService(
+            VideoRepository videoRepository,
+            CommentRepository commentRepository,
+            VideoViewRepository videoViewRepository,
+            VideoLikeRepository videoLikeRepository,
+            UserRepository userRepository,
+            String storeDir) {
+        this(videoRepository, commentRepository, videoViewRepository, videoLikeRepository, userRepository, null,
+                storeDir);
     }
 
     public VideoService(
@@ -195,7 +209,7 @@ public class VideoService {
         boolean likedByMe = currentUser != null
                 && videoLikeRepository != null
                 && videoLikeRepository.existsByVideoIdAndUserId(id, currentUser.getId());
-        return toDetail(video, commentCount, likedByMe);
+        return toDetailFor(video, commentCount, likedByMe, currentUser);
     }
 
     @Transactional
@@ -313,7 +327,7 @@ public class VideoService {
             video.setCategories(cleanCategories);
 
             Video saved = videoRepository.save(video);
-            return toDetail(saved, 0L);
+            return toDetailFor(saved, 0L, false, uploader);
 
         } catch (Exception e) {
             if (targetVideo != null) {
@@ -527,7 +541,25 @@ public class VideoService {
         boolean likedByMe = currentUser != null
                 && videoLikeRepository != null
                 && videoLikeRepository.existsByVideoIdAndUserId(id, currentUser.getId());
-        return toDetail(saved, commentRepository.countByVideoId(id), likedByMe);
+        return toDetailFor(saved, commentRepository.countByVideoId(id), likedByMe, currentUser);
+    }
+
+    /**
+     * Detail plus the author's channel data: subscriber count and whether {@code viewer} follows the author.
+     * Two queries at most (count, exists); never subscribed on your own video, and false when there is no viewer.
+     */
+    private VideoDetailDto toDetailFor(Video video, long commentCount, boolean likedByMe, User viewer) {
+        User author = video.getUploader();
+        long subscriberCount = 0L;
+        boolean subscribedByMe = false;
+        if (subscriptionRepository != null && author != null && author.getId() != null) {
+            subscriberCount = subscriptionRepository.countByChannelId(author.getId());
+            subscribedByMe = viewer != null
+                    && viewer.getId() != null
+                    && !viewer.getId().equals(author.getId())
+                    && subscriptionRepository.existsBySubscriberIdAndChannelId(viewer.getId(), author.getId());
+        }
+        return toDetail(video, commentCount, likedByMe, subscriberCount, subscribedByMe);
     }
 
     /** Deletes the video and dependent rows. Files are deleted after transaction commit. Only the uploader may delete (404 before 403). */
@@ -577,7 +609,12 @@ public class VideoService {
         }
         String cleanName = fileName.startsWith("/media/") ? fileName.substring("/media/".length()) : fileName;
         try {
-            Path filePath = Path.of(storeDir).resolve(cleanName).normalize();
+            Path storeRoot = Path.of(storeDir).toAbsolutePath().normalize();
+            Path filePath = storeRoot.resolve(cleanName).normalize();
+            if (!filePath.startsWith(storeRoot) || filePath.equals(storeRoot)) {
+                LOG.warn("Refusing to delete a path outside the video store: {}", fileName);
+                return;
+            }
             if (Files.exists(filePath)) {
                 Files.delete(filePath);
                 LOG.info("Deleted video store file: {}", filePath);
@@ -608,16 +645,13 @@ public class VideoService {
                 .orElseThrow(() -> new NotFoundException("Video not found with id " + videoId));
 
         User currentUser = requireCurrentAuthenticatedUser();
-        Optional<VideoLike> existing = videoLikeRepository.findByVideoIdAndUserId(video.getId(), currentUser.getId());
-        if (existing.isEmpty()) {
+        if (!videoLikeRepository.existsByVideoIdAndUserId(video.getId(), currentUser.getId())) {
+            // A concurrent duplicate fails here on the primary key; the controller answers with the current state
             videoLikeRepository.saveAndFlush(new VideoLike(video, currentUser));
-            long currentCount = video.getLikeCount() != null ? video.getLikeCount() : 0L;
-            video.setLikeCount(Math.max(0L, currentCount + 1));
-            videoRepository.save(video);
+            videoRepository.incrementLikeCount(video.getId());
         }
 
-        long likeCount = video.getLikeCount() != null ? Math.max(0L, video.getLikeCount()) : 0L;
-        return new VideoLikeDto(video.getId(), likeCount, true);
+        return new VideoLikeDto(video.getId(), videoRepository.findLikeCountById(video.getId()), true);
     }
 
     @Transactional
@@ -629,17 +663,12 @@ public class VideoService {
                 .orElseThrow(() -> new NotFoundException("Video not found with id " + videoId));
 
         User currentUser = requireCurrentAuthenticatedUser();
-        Optional<VideoLike> existing = videoLikeRepository.findByVideoIdAndUserId(video.getId(), currentUser.getId());
-        if (existing.isPresent()) {
-            videoLikeRepository.delete(existing.get());
-            videoLikeRepository.flush();
-            long currentCount = video.getLikeCount() != null ? video.getLikeCount() : 0L;
-            video.setLikeCount(Math.max(0L, currentCount - 1));
-            videoRepository.save(video);
+        // Only the request that actually removed the row decrements, so concurrent unlikes count once
+        if (videoLikeRepository.deleteByVideoIdAndUserId(video.getId(), currentUser.getId()) > 0) {
+            videoRepository.decrementLikeCount(video.getId());
         }
 
-        long likeCount = video.getLikeCount() != null ? Math.max(0L, video.getLikeCount()) : 0L;
-        return new VideoLikeDto(video.getId(), likeCount, false);
+        return new VideoLikeDto(video.getId(), videoRepository.findLikeCountById(video.getId()), false);
     }
 
     @Transactional(readOnly = true)
@@ -707,6 +736,11 @@ public class VideoService {
     }
 
     static VideoDetailDto toDetail(Video video, long commentCount, boolean likedByMe) {
+        return toDetail(video, commentCount, likedByMe, 0L, false);
+    }
+
+    static VideoDetailDto toDetail(Video video, long commentCount, boolean likedByMe, long authorSubscriberCount,
+                                   boolean subscribedByMe) {
         return new VideoDetailDto(
                 video.getId(),
                 video.getTitle(),
@@ -720,7 +754,9 @@ public class VideoService {
                 commentCount,
                 video.getVideoUrl(),
                 video.getThumbnailUrl(),
-                likedByMe);
+                likedByMe,
+                authorSubscriberCount,
+                subscribedByMe);
     }
 }
 

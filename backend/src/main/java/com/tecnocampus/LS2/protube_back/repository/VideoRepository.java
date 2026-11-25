@@ -5,6 +5,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -19,6 +20,23 @@ public interface VideoRepository extends JpaRepository<Video, Long> {
     /** One page of the videos uploaded by {@code uploaderId}; order comes from the {@link Pageable}. */
     @EntityGraph(attributePaths = "uploader")
     Page<Video> findByUploaderId(Long uploaderId, Pageable pageable);
+
+    /**
+     * Subscription feed: videos uploaded by the channels {@code subscriberId} follows, newest first
+     * ({@code createdAt DESC, id DESC}, so videos with the same time keep a stable order between pages).
+     * The page request must stay unsorted: the order is part of the query.
+     */
+    @EntityGraph(attributePaths = "uploader")
+    @Query(value = """
+            SELECT v FROM Video v
+            WHERE v.uploader.id IN (SELECT s.channel.id FROM Subscription s WHERE s.subscriber.id = :subscriberId)
+            ORDER BY v.createdAt DESC, v.id DESC
+            """,
+            countQuery = """
+            SELECT COUNT(v) FROM Video v
+            WHERE v.uploader.id IN (SELECT s.channel.id FROM Subscription s WHERE s.subscriber.id = :subscriberId)
+            """)
+    Page<Video> findFeed(@Param("subscriberId") Long subscriberId, Pageable pageable);
 
     List<Video> findByTitleContainingIgnoreCase(String query);
     boolean existsByStoreId(Long storeId);
@@ -41,12 +59,28 @@ public interface VideoRepository extends JpaRepository<Video, Long> {
     Page<Video> findByCategoryIgnoreCase(@Param("category") String category, Pageable pageable);
 
     @Query("""
-            SELECT c, COUNT(DISTINCT v.id)
+            SELECT MIN(c), COUNT(DISTINCT v.id)
             FROM Video v JOIN v.categories c
-            GROUP BY c
-            ORDER BY COUNT(DISTINCT v.id) DESC, c ASC
+            GROUP BY LOWER(c)
+            ORDER BY COUNT(DISTINCT v.id) DESC, LOWER(c) ASC
             """)
     List<Object[]> findCategoryCounts();
+
+    // Atomic counter updates: the database adds to the current value, so concurrent likes are never lost.
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("UPDATE Video v SET v.likeCount = COALESCE(v.likeCount, 0) + 1 WHERE v.id = :id")
+    int incrementLikeCount(@Param("id") Long id);
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("""
+            UPDATE Video v
+            SET v.likeCount = CASE WHEN COALESCE(v.likeCount, 0) > 0 THEN v.likeCount - 1 ELSE 0 END
+            WHERE v.id = :id
+            """)
+    int decrementLikeCount(@Param("id") Long id);
+
+    @Query("SELECT COALESCE(v.likeCount, 0) FROM Video v WHERE v.id = :id")
+    long findLikeCountById(@Param("id") Long id);
 
     /**
      * Case-insensitive search over title, tags and description, ranked by where the match is.

@@ -806,17 +806,18 @@ class VideoServiceTest {
 
         when(userRepository.findById(2L)).thenReturn(Optional.of(liker));
         when(videoRepository.findById(42L)).thenReturn(Optional.of(video));
-        when(videoLikeRepository.findByVideoIdAndUserId(42L, 2L)).thenReturn(Optional.empty());
+        when(videoLikeRepository.existsByVideoIdAndUserId(42L, 2L)).thenReturn(false);
+        when(videoRepository.findLikeCountById(42L)).thenReturn(6L);
 
         VideoLikeDto result = videoService.likeVideo(42L);
 
         assertThat(result.videoId()).isEqualTo(42L);
         assertThat(result.likeCount()).isEqualTo(6L);
         assertThat(result.likedByMe()).isTrue();
-        assertThat(video.getLikeCount()).isEqualTo(6L);
 
         verify(videoLikeRepository).saveAndFlush(any(VideoLike.class));
-        verify(videoRepository).save(video);
+        verify(videoRepository).incrementLikeCount(42L);
+        verify(videoRepository, never()).save(any());
     }
 
     @Test
@@ -835,17 +836,17 @@ class VideoServiceTest {
 
         when(userRepository.findById(2L)).thenReturn(Optional.of(liker));
         when(videoRepository.findById(42L)).thenReturn(Optional.of(video));
-        when(videoLikeRepository.findByVideoIdAndUserId(42L, 2L)).thenReturn(Optional.of(new VideoLike(video, liker)));
+        when(videoLikeRepository.existsByVideoIdAndUserId(42L, 2L)).thenReturn(true);
+        when(videoRepository.findLikeCountById(42L)).thenReturn(5L);
 
         VideoLikeDto result = videoService.likeVideo(42L);
 
         assertThat(result.videoId()).isEqualTo(42L);
         assertThat(result.likeCount()).isEqualTo(5L);
         assertThat(result.likedByMe()).isTrue();
-        assertThat(video.getLikeCount()).isEqualTo(5L);
 
         verify(videoLikeRepository, never()).saveAndFlush(any());
-        verify(videoRepository, never()).save(video);
+        verify(videoRepository, never()).incrementLikeCount(any());
     }
 
     @Test
@@ -883,7 +884,6 @@ class VideoServiceTest {
 
         User liker = new User("bob", "bob@example.com", "password");
         liker.setId(2L);
-        VideoLike existing = new VideoLike(video, liker);
 
         UserPrincipal principal = UserPrincipal.fromUser(liker);
         SecurityContextHolder.getContext().setAuthentication(
@@ -891,18 +891,17 @@ class VideoServiceTest {
 
         when(userRepository.findById(2L)).thenReturn(Optional.of(liker));
         when(videoRepository.findById(42L)).thenReturn(Optional.of(video));
-        when(videoLikeRepository.findByVideoIdAndUserId(42L, 2L)).thenReturn(Optional.of(existing));
+        when(videoLikeRepository.deleteByVideoIdAndUserId(42L, 2L)).thenReturn(1);
+        when(videoRepository.findLikeCountById(42L)).thenReturn(4L);
 
         VideoLikeDto result = videoService.unlikeVideo(42L);
 
         assertThat(result.videoId()).isEqualTo(42L);
         assertThat(result.likeCount()).isEqualTo(4L);
         assertThat(result.likedByMe()).isFalse();
-        assertThat(video.getLikeCount()).isEqualTo(4L);
 
-        verify(videoLikeRepository).delete(existing);
-        verify(videoLikeRepository).flush();
-        verify(videoRepository).save(video);
+        verify(videoRepository).decrementLikeCount(42L);
+        verify(videoRepository, never()).save(any());
     }
 
     @Test
@@ -921,7 +920,8 @@ class VideoServiceTest {
 
         when(userRepository.findById(2L)).thenReturn(Optional.of(liker));
         when(videoRepository.findById(42L)).thenReturn(Optional.of(video));
-        when(videoLikeRepository.findByVideoIdAndUserId(42L, 2L)).thenReturn(Optional.empty());
+        when(videoLikeRepository.deleteByVideoIdAndUserId(42L, 2L)).thenReturn(0);
+        when(videoRepository.findLikeCountById(42L)).thenReturn(5L);
 
         VideoLikeDto result = videoService.unlikeVideo(42L);
 
@@ -929,8 +929,7 @@ class VideoServiceTest {
         assertThat(result.likeCount()).isEqualTo(5L);
         assertThat(result.likedByMe()).isFalse();
 
-        verify(videoLikeRepository, never()).delete(any());
-        verify(videoRepository, never()).save(video);
+        verify(videoRepository, never()).decrementLikeCount(any());
     }
 
     @Test
@@ -942,7 +941,6 @@ class VideoServiceTest {
 
         User liker = new User("bob", "bob@example.com", "password");
         liker.setId(2L);
-        VideoLike existing = new VideoLike(video, liker);
 
         UserPrincipal principal = UserPrincipal.fromUser(liker);
         SecurityContextHolder.getContext().setAuthentication(
@@ -950,12 +948,14 @@ class VideoServiceTest {
 
         when(userRepository.findById(2L)).thenReturn(Optional.of(liker));
         when(videoRepository.findById(42L)).thenReturn(Optional.of(video));
-        when(videoLikeRepository.findByVideoIdAndUserId(42L, 2L)).thenReturn(Optional.of(existing));
+        when(videoLikeRepository.deleteByVideoIdAndUserId(42L, 2L)).thenReturn(1);
+        when(videoRepository.findLikeCountById(42L)).thenReturn(0L);
 
         VideoLikeDto result = videoService.unlikeVideo(42L);
 
+        // The floor at zero is applied by VideoRepository.decrementLikeCount (see VideoRepositoryTest)
         assertThat(result.likeCount()).isEqualTo(0L);
-        assertThat(video.getLikeCount()).isEqualTo(0L);
+        verify(videoRepository).decrementLikeCount(42L);
     }
 
     @Test
@@ -1067,5 +1067,24 @@ class VideoServiceTest {
         service.deleteStoreFile(null);
         service.deleteStoreFile("");
         service.deleteStoreFile("https://example.com/video.mp4");
+    }
+
+    @Test
+    void deleteStoreFile_neverDeletesOutsideTheStore(@TempDir Path tempDir) throws IOException {
+        Path store = Files.createDirectory(tempDir.resolve("store"));
+        Path outside = Files.writeString(tempDir.resolve("outside.txt"), "keep me");
+        Path inside = Files.writeString(store.resolve("inside.mp4"), "video");
+        VideoService service = new VideoService(
+                videoRepository, commentRepository, videoViewRepository, videoLikeRepository, userRepository, store.toString()
+        );
+
+        service.deleteStoreFile("../outside.txt");
+        service.deleteStoreFile("/media/../outside.txt");
+        service.deleteStoreFile(".");
+        service.deleteStoreFile("/media/inside.mp4");
+
+        assertThat(outside).exists();
+        assertThat(store).exists();
+        assertThat(inside).doesNotExist();
     }
 }

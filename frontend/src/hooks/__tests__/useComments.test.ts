@@ -1,3 +1,4 @@
+import { createElement, StrictMode, type ReactNode } from 'react';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import axios from 'axios';
 import { useComments } from '../useComments';
@@ -223,5 +224,91 @@ describe('useComments hook', () => {
       await result.current.reload();
     });
     expect(result.current.comments).toHaveLength(1);
+  });
+
+  it('edits a root comment and updates it in the list', async () => {
+    mockedGet.mockResolvedValueOnce({ data: mockPage });
+    mockedPut.mockResolvedValueOnce({
+      data: { ...sampleComment, text: 'Edited root text' },
+    });
+
+    const { result } = renderHook(() => useComments(42));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    await act(async () => {
+      const updated = await result.current.editComment(1, 'Edited root text');
+      expect(updated.text).toBe('Edited root text');
+    });
+
+    expect(result.current.comments[0].text).toBe('Edited root text');
+    expect(result.current.comments[0].replies).toHaveLength(1);
+  });
+
+  it('edits a nested reply and updates it in the list', async () => {
+    mockedGet.mockResolvedValueOnce({ data: mockPage });
+    mockedPut.mockResolvedValueOnce({
+      data: { ...sampleComment.replies[0], text: 'Edited reply text' },
+    });
+
+    const { result } = renderHook(() => useComments(42));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    await act(async () => {
+      const updated = await result.current.editComment(2, 'Edited reply text');
+      expect(updated.text).toBe('Edited reply text');
+    });
+
+    expect(result.current.comments[0].replies[0].text).toBe('Edited reply text');
+  });
+
+  it('deletes a nested reply and updates comments and counts', async () => {
+    mockedGet.mockResolvedValueOnce({ data: mockPage });
+    mockedDelete.mockResolvedValueOnce({ status: 204 });
+
+    const { result } = renderHook(() => useComments(42));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    await act(async () => {
+      await result.current.deleteComment(2);
+    });
+
+    expect(mockedDelete).toHaveBeenCalledWith(expect.stringContaining('/comments/2'), expect.any(Object));
+    expect(result.current.comments[0].replies).toHaveLength(0);
+    expect(result.current.addedCount).toBe(-1);
+    expect(result.current.totalElements).toBe(0);
+  });
+
+  it('deletes a root comment and cascades removal of root and replies', async () => {
+    mockedGet.mockResolvedValueOnce({ data: mockPage });
+    mockedDelete.mockResolvedValueOnce({ status: 204 });
+
+    const { result } = renderHook(() => useComments(42));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    await act(async () => {
+      await result.current.deleteComment(1);
+    });
+
+    expect(mockedDelete).toHaveBeenCalledWith(expect.stringContaining('/comments/1'), expect.any(Object));
+    expect(result.current.comments).toHaveLength(0);
+    expect(result.current.addedCount).toBe(-2);
+    expect(result.current.totalElements).toBe(0);
+  });
+
+  it('subtracts the counters only once under StrictMode', async () => {
+    mockedGet.mockResolvedValueOnce({ data: { ...mockPage, totalElements: 5 } });
+    mockedDelete.mockResolvedValueOnce({ status: 204 });
+    const wrapper = ({ children }: { children: ReactNode }) => createElement(StrictMode, null, children);
+
+    const { result } = renderHook(() => useComments(42), { wrapper });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    await act(async () => {
+      await result.current.deleteComment(2);
+    });
+
+    expect(result.current.comments[0].replies).toHaveLength(0);
+    expect(result.current.addedCount).toBe(-1);
+    expect(result.current.totalElements).toBe(4);
   });
 });

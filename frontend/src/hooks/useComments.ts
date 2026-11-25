@@ -1,4 +1,4 @@
-import { useCallback, useContext, useEffect, useState } from 'react';
+import { useCallback, useContext, useEffect, useRef, useState } from 'react';
 import axios from 'axios';
 import { AuthContext } from '../context/AuthContext';
 import type { Comment, CommentLikeResponse, CommentsPage } from '../types/comment';
@@ -16,12 +16,19 @@ interface UseCommentsReturn {
   loadMore: () => Promise<void>;
   addComment: (text: string) => Promise<Comment>;
   addReply: (commentId: number, text: string) => Promise<Comment>;
+  editComment: (commentId: number, text: string) => Promise<Comment>;
+  deleteComment: (commentId: number) => Promise<void>;
   toggleLike: (commentId: number) => Promise<void>;
   reload: () => Promise<void>;
 }
 
 export function useComments(videoId: number | string | undefined): UseCommentsReturn {
   const [comments, setComments] = useState<Comment[]>([]);
+  // Latest comments for callbacks that need to read them without being recreated on every change
+  const commentsRef = useRef<Comment[]>(comments);
+  useEffect(() => {
+    commentsRef.current = comments;
+  }, [comments]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState<number>(0);
@@ -118,8 +125,64 @@ export function useComments(videoId: number | string | undefined): UseCommentsRe
           return c;
         })
       );
+      setTotalElements((prev) => prev + 1);
       setAddedCount((prev) => prev + 1);
       return res.data;
+    },
+    [getAuthHeaders]
+  );
+
+  const editComment = useCallback(
+    async (commentId: number, text: string): Promise<Comment> => {
+      const res = await axios.put<Comment>(
+        `${getEnv().API_BASE_URL}/comments/${commentId}`,
+        { text },
+        { headers: getAuthHeaders() }
+      );
+      const updated = res.data;
+      setComments((prev) =>
+        prev.map((c) => {
+          if (c.id === commentId) {
+            return {
+              ...c,
+              ...updated,
+              replies: updated.replies && updated.replies.length > 0 ? updated.replies : c.replies,
+            };
+          }
+          if (c.replies && c.replies.length > 0) {
+            const updatedReplies = c.replies.map((r) => (r.id === commentId ? { ...r, ...updated } : r));
+            return { ...c, replies: updatedReplies };
+          }
+          return c;
+        })
+      );
+      return updated;
+    },
+    [getAuthHeaders]
+  );
+
+  const deleteComment = useCallback(
+    async (commentId: number): Promise<void> => {
+      await axios.delete(`${getEnv().API_BASE_URL}/comments/${commentId}`, {
+        headers: getAuthHeaders(),
+      });
+
+      // Counted outside the setComments updater: updaters must be pure because React may run them twice
+      // (StrictMode does in development), which would subtract the counters twice.
+      const root = commentsRef.current.find((c) => c.id === commentId);
+      const removedCount = root ? 1 + (root.replies ? root.replies.length : 0) : 1;
+
+      setComments((prev) =>
+        root
+          ? prev.filter((c) => c.id !== commentId)
+          : prev.map((c) =>
+              c.replies && c.replies.some((r) => r.id === commentId)
+                ? { ...c, replies: c.replies.filter((r) => r.id !== commentId) }
+                : c
+            )
+      );
+      setTotalElements((te) => Math.max(0, te - removedCount));
+      setAddedCount((ac) => ac - removedCount);
     },
     [getAuthHeaders]
   );
@@ -175,6 +238,8 @@ export function useComments(videoId: number | string | undefined): UseCommentsRe
     loadMore,
     addComment,
     addReply,
+    editComment,
+    deleteComment,
     toggleLike,
     reload,
   };

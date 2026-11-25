@@ -45,3 +45,8 @@ export function formatChartDate(val: string | null | undefined): string {
   }
   return val ?? '';
 }
+
+/** "1 subscriber", "0 subscribers", "12 subscribers". */
+export function formatSubscribers(count: number): string {
+  return `${count} ${count === 1 ? 'subscriber' : 'subscribers'}`;
+}
