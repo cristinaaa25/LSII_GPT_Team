@@ -1,7 +1,11 @@
 package com.tecnocampus.LS2.protube_back.repository;
 
 import com.tecnocampus.LS2.protube_back.domain.VideoView;
+import com.tecnocampus.LS2.protube_back.dto.HistoryVideoDto;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -37,4 +41,34 @@ public interface VideoViewRepository extends JpaRepository<VideoView, Long> {
 
         Number getAuthenticated();
     }
+
+    /**
+     * Distinct videos viewed by {@code viewerId}, ordered by most recent view first.
+     * Uses a single grouped query projecting directly into {@link HistoryVideoDto} to avoid N+1 selects.
+     */
+    @Query(value = """
+            SELECT new com.tecnocampus.LS2.protube_back.dto.HistoryVideoDto(
+                v.id, v.title, u.username, v.duration, v.viewCount, v.thumbnailUrl, MAX(vv.viewedAt)
+            )
+            FROM VideoView vv
+            JOIN vv.video v
+            JOIN v.uploader u
+            WHERE vv.viewer.id = :viewerId
+            GROUP BY v.id, v.title, u.username, v.duration, v.viewCount, v.thumbnailUrl
+            ORDER BY MAX(vv.viewedAt) DESC, MAX(vv.id) DESC
+            """,
+            countQuery = """
+            SELECT COUNT(DISTINCT vv.video.id)
+            FROM VideoView vv
+            WHERE vv.viewer.id = :viewerId
+            """)
+    Page<HistoryVideoDto> findHistoryByViewerId(@Param("viewerId") Long viewerId, Pageable pageable);
+
+    /**
+     * Clears {@code viewerId}'s watch history by detaching the user from their views,
+     * keeping the view rows intact so video view counts and uploader analytics do not change.
+     */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("UPDATE VideoView vv SET vv.viewer = null WHERE vv.viewer.id = :viewerId")
+    int clearViewerByViewerId(@Param("viewerId") Long viewerId);
 }

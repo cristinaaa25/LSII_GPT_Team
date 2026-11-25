@@ -1,6 +1,7 @@
 package com.tecnocampus.LS2.protube_back.controller;
 
 import com.tecnocampus.LS2.protube_back.dto.ChannelDto;
+import com.tecnocampus.LS2.protube_back.dto.HistoryVideoDto;
 import com.tecnocampus.LS2.protube_back.dto.PageDto;
 import com.tecnocampus.LS2.protube_back.dto.SubscriptionStatusDto;
 import com.tecnocampus.LS2.protube_back.dto.UpdateProfileRequestDto;
@@ -9,6 +10,7 @@ import com.tecnocampus.LS2.protube_back.dto.UserDto;
 import com.tecnocampus.LS2.protube_back.dto.UserProfileDto;
 import com.tecnocampus.LS2.protube_back.dto.VideoSummaryDto;
 import com.tecnocampus.LS2.protube_back.services.AnalyticsService;
+import com.tecnocampus.LS2.protube_back.services.HistoryService;
 import com.tecnocampus.LS2.protube_back.services.SubscriptionService;
 import com.tecnocampus.LS2.protube_back.services.UserService;
 import jakarta.validation.Valid;
@@ -28,12 +30,14 @@ public class UserController {
     private final UserService userService;
     private final AnalyticsService analyticsService;
     private final SubscriptionService subscriptionService;
+    private final HistoryService historyService;
 
     public UserController(UserService userService, AnalyticsService analyticsService,
-                          SubscriptionService subscriptionService) {
+                          SubscriptionService subscriptionService, HistoryService historyService) {
         this.userService = userService;
         this.analyticsService = analyticsService;
         this.subscriptionService = subscriptionService;
+        this.historyService = historyService;
     }
 
     @GetMapping("/me")
@@ -91,6 +95,28 @@ public class UserController {
             throw new BadCredentialsException("Authentication required");
         }
         return ResponseEntity.ok(subscriptionService.getFeed(principal.getName(), page, size));
+    }
+
+    /** Distinct videos viewed by the current user, most recent view first. */
+    @GetMapping("/me/history")
+    public ResponseEntity<PageDto<HistoryVideoDto>> getMyHistory(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "12") int size,
+            Principal principal) {
+        if (principal == null) {
+            throw new BadCredentialsException("Authentication required");
+        }
+        return ResponseEntity.ok(historyService.getHistory(principal.getName(), page, size));
+    }
+
+    /** Clears the current user's watch history without changing video view counts or analytics. */
+    @DeleteMapping("/me/history")
+    public ResponseEntity<Void> clearMyHistory(Principal principal) {
+        if (principal == null) {
+            throw new BadCredentialsException("Authentication required");
+        }
+        historyService.clearHistory(principal.getName());
+        return ResponseEntity.noContent().build();
     }
 
     /** Public; {@code subscribedByMe} is false when the request carries no valid token. */

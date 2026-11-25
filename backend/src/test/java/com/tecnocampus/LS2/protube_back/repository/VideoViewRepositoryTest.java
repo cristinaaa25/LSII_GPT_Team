@@ -3,12 +3,15 @@ package com.tecnocampus.LS2.protube_back.repository;
 import com.tecnocampus.LS2.protube_back.domain.User;
 import com.tecnocampus.LS2.protube_back.domain.Video;
 import com.tecnocampus.LS2.protube_back.domain.VideoView;
+import com.tecnocampus.LS2.protube_back.dto.HistoryVideoDto;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.ActiveProfiles;
 
 import java.time.Instant;
@@ -97,9 +100,58 @@ class VideoViewRepositoryTest {
     }
 
     private void persistView(User viewer, String viewedAt) {
-        VideoView view = viewer != null ? new VideoView(video, viewer) : new VideoView(video);
+        persistView(video, viewer, viewedAt);
+    }
+
+    private void persistView(Video target, User viewer, String viewedAt) {
+        VideoView view = viewer != null ? new VideoView(target, viewer) : new VideoView(target);
         view.setViewedAt(Instant.parse(viewedAt));
         entityManager.persistFlushFind(view);
+    }
+
+    @Test
+    void findHistoryByViewerIdReturnsDistinctVideosOrderedByLatestView() {
+        User other = entityManager.persistFlushFind(new User("other2", "other2@example.com", "pass"));
+        Video second = entityManager.persistFlushFind(new Video("Second Video", "http://media/v2.mp4", other));
+        second.setDuration(42.5);
+        second.setViewCount(10L);
+        second.setThumbnailUrl("v2.webp");
+        entityManager.persistFlushFind(second);
+
+        // User watches first video twice and second video once in between
+        persistView(video, user, "2026-11-01T10:00:00Z");
+        persistView(second, user, "2026-11-02T10:00:00Z");
+        persistView(video, user, "2026-11-03T10:00:00Z");
+        // Other user and anonymous views must not leak into user's history
+        persistView(second, other, "2026-11-04T10:00:00Z");
+        persistView(second, null, "2026-11-05T10:00:00Z");
+
+        Page<HistoryVideoDto> page = videoViewRepository.findHistoryByViewerId(user.getId(), PageRequest.of(0, 10));
+
+        assertThat(page.getTotalElements()).isEqualTo(2L);
+        assertThat(page.getContent()).extracting(HistoryVideoDto::id).containsExactly(video.getId(), second.getId());
+        assertThat(page.getContent().get(0).lastViewedAt()).isEqualTo(Instant.parse("2026-11-03T10:00:00Z"));
+        assertThat(page.getContent().get(1).lastViewedAt()).isEqualTo(Instant.parse("2026-11-02T10:00:00Z"));
+        assertThat(page.getContent().get(1).author()).isEqualTo("other2");
+        assertThat(page.getContent().get(1).duration()).isEqualTo(42.5);
+        assertThat(page.getContent().get(1).views()).isEqualTo(10L);
+        assertThat(page.getContent().get(1).thumbnail()).isEqualTo("v2.webp");
+    }
+
+    @Test
+    void clearViewerByViewerIdDetachesOnlyTargetUserViewsWithoutDeletingRows() {
+        User other = entityManager.persistFlushFind(new User("other3", "other3@example.com", "pass"));
+        persistView(video, user, "2026-11-01T10:00:00Z");
+        persistView(video, user, "2026-11-02T10:00:00Z");
+        persistView(video, other, "2026-11-03T10:00:00Z");
+
+        int updated = videoViewRepository.clearViewerByViewerId(user.getId());
+
+        assertThat(updated).isEqualTo(2);
+        assertThat(videoViewRepository.findHistoryByViewerId(user.getId(), PageRequest.of(0, 10)).isEmpty()).isTrue();
+        assertThat(videoViewRepository.countByVideoId(video.getId())).isEqualTo(3L);
+        assertThat(videoViewRepository.findHistoryByViewerId(other.getId(), PageRequest.of(0, 10)).getTotalElements())
+                .isEqualTo(1L);
     }
 
     @Test

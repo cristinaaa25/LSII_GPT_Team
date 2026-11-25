@@ -50,3 +50,22 @@ export function formatChartDate(val: string | null | undefined): string {
 export function formatSubscribers(count: number): string {
   return `${count} ${count === 1 ? 'subscriber' : 'subscribers'}`;
 }
+
+/** Formats an ISO timestamp as a relative age like "just now", "5 minutes ago", "2 hours ago". */
+export function formatTimeAgo(dateString: string | null | undefined, nowMs = Date.now()): string {
+  if (!dateString) return '';
+  const timestamp = Date.parse(dateString);
+  if (Number.isNaN(timestamp)) return '';
+  const diffSeconds = Math.max(0, Math.floor((nowMs - timestamp) / 1000));
+  if (diffSeconds < 60) return 'just now';
+  const minutes = Math.floor(diffSeconds / 60);
+  if (minutes < 60) return `${minutes} ${minutes === 1 ? 'minute' : 'minutes'} ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} ${hours === 1 ? 'hour' : 'hours'} ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `${days} ${days === 1 ? 'day' : 'days'} ago`;
+  const months = Math.floor(days / 30);
+  if (months < 12) return `${months} ${months === 1 ? 'month' : 'months'} ago`;
+  const years = Math.floor(days / 365);
+  return `${years} ${years === 1 ? 'year' : 'years'} ago`;
+}

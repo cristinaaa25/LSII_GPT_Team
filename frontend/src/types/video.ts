@@ -8,6 +8,12 @@ export interface VideoSummary {
   thumbnail: string | null;
 }
 
+/** Distinct video from the user's watch history (GET /api/users/me/history). */
+export interface HistoryVideo extends VideoSummary {
+  /** ISO-8601 timestamp of the user's most recent view of this video. */
+  lastViewedAt: string;
+}
+
 /** Detailed video information returned by GET /api/videos/:id. */
 export interface VideoDetail {
   id?: number;

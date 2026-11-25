@@ -166,7 +166,7 @@ describe('VideoDetailPage', () => {
       fireEvent.play(videoEl);
     });
 
-    expect(mockedPost).toHaveBeenCalledWith('other/videos/42/views');
+    expect(mockedPost).toHaveBeenCalledWith('other/videos/42/views', null, { headers: {} });
     expect(screen.getByText('1.2K views')).toBeInTheDocument();
   });
 

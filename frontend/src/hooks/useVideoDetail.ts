@@ -70,7 +70,12 @@ export function useVideoDetail(id: string | undefined): UseVideoDetailReturn {
     if (!id || viewRegistered.current) return;
     viewRegistered.current = true;
     try {
-      await axios.post(`${getEnv().API_BASE_URL}/videos/${id}/views`);
+      const token = authService.getToken();
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+      }
+      await axios.post(`${getEnv().API_BASE_URL}/videos/${id}/views`, null, { headers });
       setVideo((prev) => (prev ? { ...prev, views: prev.views + 1 } : prev));
     } catch {
       // view registration failure shouldn't disrupt playback

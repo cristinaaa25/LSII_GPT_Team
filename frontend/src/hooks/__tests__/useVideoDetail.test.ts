@@ -1,6 +1,7 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import axios from 'axios';
 import { useVideoDetail } from '../useVideoDetail';
+import { authService } from '../../services/authService';
 
 jest.mock('axios');
 const mockedAxios = axios as unknown as { get: jest.Mock; post: jest.Mock; isAxiosError: jest.Mock };
@@ -8,6 +9,7 @@ const mockedAxios = axios as unknown as { get: jest.Mock; post: jest.Mock; isAxi
 describe('useVideoDetail', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    localStorage.clear();
     mockedAxios.isAxiosError.mockImplementation((err) => !!err && typeof err === 'object' && 'response' in err);
   });
 
@@ -95,6 +97,7 @@ describe('useVideoDetail', () => {
     });
 
     expect(mockedAxios.post).toHaveBeenCalledTimes(1);
+    expect(mockedAxios.post).toHaveBeenCalledWith('other/videos/5/views', null, { headers: {} });
     expect(result.current.video?.views).toBe(11);
 
     // Second view registration on same mount does not send another request
@@ -102,6 +105,35 @@ describe('useVideoDetail', () => {
       await result.current.registerView();
     });
     expect(mockedAxios.post).toHaveBeenCalledTimes(1);
+  });
+
+  it('sends the Authorization header when registering a view while logged in', async () => {
+    authService.setToken('viewer-jwt');
+    const mockDetail = {
+      id: 5,
+      title: 'Detail Title',
+      description: 'Detail desc',
+      videoUrl: 'http://video.mp4',
+      thumbnailUrl: null,
+      author: 'alice',
+      views: 10,
+      createdAt: '2026-01-01T00:00:00Z',
+      tags: [],
+      categories: [],
+    };
+    mockedAxios.get.mockResolvedValueOnce({ data: mockDetail });
+    mockedAxios.post.mockResolvedValueOnce({});
+
+    const { result } = renderHook(() => useVideoDetail('5'));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    await act(async () => {
+      await result.current.registerView();
+    });
+
+    expect(mockedAxios.post).toHaveBeenCalledWith('other/videos/5/views', null, {
+      headers: { Authorization: 'Bearer viewer-jwt' },
+    });
   });
 
   it('allows replacing video state', async () => {
