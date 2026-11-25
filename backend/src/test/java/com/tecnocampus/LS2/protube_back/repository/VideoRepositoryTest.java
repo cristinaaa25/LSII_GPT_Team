@@ -219,6 +219,47 @@ class VideoRepositoryTest {
     }
 
     @Test
+    void findCategoryCountsMergesCategoriesThatOnlyDifferInCase() {
+        Video v1 = new Video("V1", "desc", "v1.mp4", "v1.webp", 10.0, 640, 360, uploader);
+        v1.setCategories(new ArrayList<>(List.of("Music")));
+        entityManager.persist(v1);
+
+        Video v2 = new Video("V2", "desc", "v2.mp4", "v2.webp", 10.0, 640, 360, uploader);
+        v2.setCategories(new ArrayList<>(List.of("music")));
+        entityManager.persist(v2);
+
+        Video v3 = new Video("V3", "desc", "v3.mp4", "v3.webp", 10.0, 640, 360, uploader);
+        v3.setCategories(new ArrayList<>(List.of("Tech")));
+        entityManager.persist(v3);
+
+        entityManager.flush();
+
+        // Same rule as the case-insensitive filter: one chip per category, with the count of both spellings
+        List<Object[]> counts = videoRepository.findCategoryCounts();
+        assertThat(counts).hasSize(2);
+        assertThat((String) counts.get(0)[0]).isEqualToIgnoringCase("music");
+        assertThat(((Number) counts.get(0)[1]).longValue()).isEqualTo(2L);
+        assertThat(counts.get(1)[0]).isEqualTo("Tech");
+    }
+
+    @Test
+    void likeCounterUpdatesAreAtomicAndNeverGoBelowZero() {
+        Video video = new Video("Counter", "desc", "c.mp4", "c.webp", 10.0, 640, 360, uploader);
+        video.setLikeCount(1L);
+        Long id = entityManager.persistFlushFind(video).getId();
+
+        assertThat(videoRepository.incrementLikeCount(id)).isEqualTo(1);
+        assertThat(videoRepository.findLikeCountById(id)).isEqualTo(2L);
+
+        videoRepository.decrementLikeCount(id);
+        videoRepository.decrementLikeCount(id);
+        videoRepository.decrementLikeCount(id);
+        assertThat(videoRepository.findLikeCountById(id)).isZero();
+
+        assertThat(videoRepository.incrementLikeCount(999_999L)).isZero();
+    }
+
+    @Test
     void testVideoSettersAndConstructors() {
         Video video = new Video("Basic Title", "http://media/basic.mp4", uploader);
         video.setTitle("Updated Title");

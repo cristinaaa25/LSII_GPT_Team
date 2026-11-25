@@ -1,7 +1,7 @@
 # Channel subscriptions and feed
 
-**Approved on:** pending (PR #<n>)
-**Approved by:** team review in PR #<n>
+**Approved on:** 2026-11-23 (PR #37)
+**Approved by:** team review in PR #37
 **Used for:** adding a follow relation between users (migration, idempotent PUT/DELETE, counts on a public resource,
 a paged feed without N+1) and its React UI with protected page, plus E2E coverage.
 

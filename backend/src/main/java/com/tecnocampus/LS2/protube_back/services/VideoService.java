@@ -37,7 +37,6 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.util.Optional;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -610,7 +609,12 @@ public class VideoService {
         }
         String cleanName = fileName.startsWith("/media/") ? fileName.substring("/media/".length()) : fileName;
         try {
-            Path filePath = Path.of(storeDir).resolve(cleanName).normalize();
+            Path storeRoot = Path.of(storeDir).toAbsolutePath().normalize();
+            Path filePath = storeRoot.resolve(cleanName).normalize();
+            if (!filePath.startsWith(storeRoot) || filePath.equals(storeRoot)) {
+                LOG.warn("Refusing to delete a path outside the video store: {}", fileName);
+                return;
+            }
             if (Files.exists(filePath)) {
                 Files.delete(filePath);
                 LOG.info("Deleted video store file: {}", filePath);
@@ -641,16 +645,13 @@ public class VideoService {
                 .orElseThrow(() -> new NotFoundException("Video not found with id " + videoId));
 
         User currentUser = requireCurrentAuthenticatedUser();
-        Optional<VideoLike> existing = videoLikeRepository.findByVideoIdAndUserId(video.getId(), currentUser.getId());
-        if (existing.isEmpty()) {
+        if (!videoLikeRepository.existsByVideoIdAndUserId(video.getId(), currentUser.getId())) {
+            // A concurrent duplicate fails here on the primary key; the controller answers with the current state
             videoLikeRepository.saveAndFlush(new VideoLike(video, currentUser));
-            long currentCount = video.getLikeCount() != null ? video.getLikeCount() : 0L;
-            video.setLikeCount(Math.max(0L, currentCount + 1));
-            videoRepository.save(video);
+            videoRepository.incrementLikeCount(video.getId());
         }
 
-        long likeCount = video.getLikeCount() != null ? Math.max(0L, video.getLikeCount()) : 0L;
-        return new VideoLikeDto(video.getId(), likeCount, true);
+        return new VideoLikeDto(video.getId(), videoRepository.findLikeCountById(video.getId()), true);
     }
 
     @Transactional
@@ -662,17 +663,12 @@ public class VideoService {
                 .orElseThrow(() -> new NotFoundException("Video not found with id " + videoId));
 
         User currentUser = requireCurrentAuthenticatedUser();
-        Optional<VideoLike> existing = videoLikeRepository.findByVideoIdAndUserId(video.getId(), currentUser.getId());
-        if (existing.isPresent()) {
-            videoLikeRepository.delete(existing.get());
-            videoLikeRepository.flush();
-            long currentCount = video.getLikeCount() != null ? video.getLikeCount() : 0L;
-            video.setLikeCount(Math.max(0L, currentCount - 1));
-            videoRepository.save(video);
+        // Only the request that actually removed the row decrements, so concurrent unlikes count once
+        if (videoLikeRepository.deleteByVideoIdAndUserId(video.getId(), currentUser.getId()) > 0) {
+            videoRepository.decrementLikeCount(video.getId());
         }
 
-        long likeCount = video.getLikeCount() != null ? Math.max(0L, video.getLikeCount()) : 0L;
-        return new VideoLikeDto(video.getId(), likeCount, false);
+        return new VideoLikeDto(video.getId(), videoRepository.findLikeCountById(video.getId()), false);
     }
 
     @Transactional(readOnly = true)
