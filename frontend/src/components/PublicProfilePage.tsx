@@ -2,6 +2,7 @@ import React from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { usePublicProfile } from '../hooks/usePublicProfile';
 import VideoCard from './VideoCard';
+import NotFoundPage from './NotFoundPage';
 import { resolveAvatarUrl } from '../utils/format';
 
 export const PublicProfilePage: React.FC = () => {
@@ -33,13 +34,7 @@ export const PublicProfilePage: React.FC = () => {
 
   if (notFound || !profile) {
     return (
-      <div className="alert alert-warning my-4 text-center" role="alert">
-        <h2 className="h4 alert-heading">User Not Found</h2>
-        <p className="mb-3">The user @{username} does not exist or may have been removed.</p>
-        <Link to="/" className="btn btn-primary">
-          Back to home
-        </Link>
-      </div>
+      <NotFoundPage title="User Not Found" message={`The user @${username} does not exist or may have been removed.`} />
     );
   }
 
