@@ -8,6 +8,7 @@ import com.tecnocampus.LS2.protube_back.exception.NotFoundException;
 import com.tecnocampus.LS2.protube_back.security.RestAuthenticationEntryPoint;
 import com.tecnocampus.LS2.protube_back.services.AnalyticsService;
 import com.tecnocampus.LS2.protube_back.services.HistoryService;
+import com.tecnocampus.LS2.protube_back.services.PlaylistService;
 import com.tecnocampus.LS2.protube_back.services.SubscriptionService;
 import com.tecnocampus.LS2.protube_back.services.UserService;
 import org.junit.jupiter.api.Test;
@@ -58,6 +59,9 @@ class UserControllerTest {
 
     @MockBean
     HistoryService historyService;
+
+    @MockBean
+    PlaylistService playlistService;
 
     @Test
     void getPublicProfileReturns200ForUnauthenticatedUser() throws Exception {
@@ -115,6 +119,11 @@ class UserControllerTest {
         mockMvc.perform(get("/api/users/me/feed")).andExpect(status().isUnauthorized());
         mockMvc.perform(get("/api/users/me/history")).andExpect(status().isUnauthorized());
         mockMvc.perform(delete("/api/users/me/history")).andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/users/me/playlists")).andExpect(status().isUnauthorized());
+        mockMvc.perform(post("/api/users/me/playlists")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"Favorites\"}"))
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
@@ -167,6 +176,32 @@ class UserControllerTest {
         mockMvc.perform(delete("/api/users/me/history"))
                 .andExpect(status().isNoContent());
         verify(historyService).clearHistory("bob");
+    }
+
+    @Test
+    @WithMockUser(username = "bob")
+    void getAndCreateMyPlaylistsReturn200And201() throws Exception {
+        var watchLater = new PlaylistSummaryDto(1L, "Watch later", true, 2L, true,
+                Instant.parse("2026-11-24T10:00:00Z"));
+        var created = new PlaylistSummaryDto(2L, "Favorites", false, 0L, false,
+                Instant.parse("2026-11-25T10:00:00Z"));
+
+        when(playlistService.getMyPlaylists("bob", 10L)).thenReturn(List.of(watchLater));
+        when(playlistService.createPlaylist("bob", "Favorites")).thenReturn(created);
+
+        mockMvc.perform(get("/api/users/me/playlists").param("videoId", "10"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(1))
+                .andExpect(jsonPath("$[0].name").value("Watch later"))
+                .andExpect(jsonPath("$[0].watchLater").value(true))
+                .andExpect(jsonPath("$[0].containsVideo").value(true));
+
+        mockMvc.perform(post("/api/users/me/playlists")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new PlaylistRequestDto("Favorites"))))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.id").value(2))
+                .andExpect(jsonPath("$.name").value("Favorites"));
     }
 
     @Test
@@ -311,7 +346,8 @@ class UserControllerTest {
 
     @Test
     void directControllerCallsThrowBadCredentialsWhenPrincipalNull() {
-        UserController controller = new UserController(userService, analyticsService, subscriptionService, historyService);
+        UserController controller = new UserController(userService, analyticsService, subscriptionService,
+                historyService, playlistService);
         assertThatThrownBy(() -> controller.getMe(null))
                 .isInstanceOf(BadCredentialsException.class)
                 .hasMessage("Authentication required");
@@ -334,6 +370,9 @@ class UserControllerTest {
         assertThatThrownBy(() -> controller.getMyFeed(0, 12, null)).isInstanceOf(BadCredentialsException.class);
         assertThatThrownBy(() -> controller.getMyHistory(0, 12, null)).isInstanceOf(BadCredentialsException.class);
         assertThatThrownBy(() -> controller.clearMyHistory(null)).isInstanceOf(BadCredentialsException.class);
+        assertThatThrownBy(() -> controller.getMyPlaylists(null, null)).isInstanceOf(BadCredentialsException.class);
+        assertThatThrownBy(() -> controller.createMyPlaylist(new PlaylistRequestDto("A"), null))
+                .isInstanceOf(BadCredentialsException.class);
     }
 
     @Test

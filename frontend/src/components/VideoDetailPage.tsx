@@ -4,6 +4,7 @@ import CommentSection from './CommentSection';
 import VideoEditForm from './VideoEditForm';
 import NotFoundPage from './NotFoundPage';
 import SubscribeButton from './SubscribeButton';
+import SaveToPlaylistDropdown from './SaveToPlaylistDropdown';
 import { AuthContext } from '../context/AuthContext';
 import { useVideoDetail } from '../hooks/useVideoDetail';
 import { videoService } from '../services/videoService';
@@ -210,26 +211,29 @@ const VideoDetailPage: React.FC = () => {
             {video.uploadDate && <span>Uploaded on {formatDate(video.uploadDate)}</span>}
           </div>
           <div className="d-flex flex-column align-items-end">
-            {currentUser ? (
-              <button
-                type="button"
-                className={`btn btn-sm ${liked ? 'btn-primary' : 'btn-outline-secondary'}`}
-                aria-pressed={liked}
-                onClick={handleToggleLike}
-                disabled={likePending}
-                aria-label={liked ? 'Unlike video' : 'Like video'}
-              >
-                👍 <span className="badge bg-secondary ms-1">{likeCount} likes</span>
-              </button>
-            ) : (
-              <Link
-                to="/login"
-                className="btn btn-outline-secondary btn-sm text-decoration-none"
-                aria-label="Log in to like"
-              >
-                👍 <span className="badge bg-secondary ms-1">{likeCount} likes</span>
-              </Link>
-            )}
+            <div className="d-flex align-items-center gap-2">
+              {video.id !== undefined && <SaveToPlaylistDropdown videoId={video.id} />}
+              {currentUser ? (
+                <button
+                  type="button"
+                  className={`btn btn-sm ${liked ? 'btn-primary' : 'btn-outline-secondary'}`}
+                  aria-pressed={liked}
+                  onClick={handleToggleLike}
+                  disabled={likePending}
+                  aria-label={liked ? 'Unlike video' : 'Like video'}
+                >
+                  👍 <span className="badge bg-secondary ms-1">{likeCount} likes</span>
+                </button>
+              ) : (
+                <Link
+                  to="/login"
+                  className="btn btn-outline-secondary btn-sm text-decoration-none"
+                  aria-label="Log in to like"
+                >
+                  👍 <span className="badge bg-secondary ms-1">{likeCount} likes</span>
+                </Link>
+              )}
+            </div>
             {likeError && (
               <div className="alert alert-danger py-1 px-2 small mt-1 mb-0" role="alert">
                 {likeError}

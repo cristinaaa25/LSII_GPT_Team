@@ -91,6 +91,7 @@ describe('Header', () => {
     expect(screen.getByRole('link', { name: 'Analytics' })).toHaveAttribute('href', '/analytics');
     expect(screen.getByRole('link', { name: 'Subscriptions' })).toHaveAttribute('href', '/subscriptions');
     expect(screen.getByRole('link', { name: 'History' })).toHaveAttribute('href', '/history');
+    expect(screen.getByRole('link', { name: 'Playlists' })).toHaveAttribute('href', '/playlists');
     expect(screen.getByRole('link', { name: 'Public Profile' })).toHaveAttribute('href', '/users/alice');
     const logoutButton = screen.getByRole('button', { name: /Logout/i });
     expect(logoutButton).toBeInTheDocument();
