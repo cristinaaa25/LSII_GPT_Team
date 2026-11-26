@@ -62,12 +62,18 @@ test.describe('Theme and responsive layout', () => {
     await expect(page.getByRole('button', { name: 'Toggle navigation' })).toBeHidden();
     await expect(page.getByPlaceholder('Search videos')).toBeVisible();
 
-    const cards = page.getByRole('region', { name: 'Video catalog' }).locator('article');
-    await expect(cards.nth(3)).toBeVisible();
-    const tops = await Promise.all([0, 1, 2, 3].map(async (i) => Math.round((await cards.nth(i).boundingBox())!.y)));
-    expect(new Set(tops).size).toBe(1);
-    const fifthTop = Math.round((await cards.nth(4).boundingBox())!.y);
-    expect(fifthTop).toBeGreaterThan(tops[0]);
+    // Measured on the grid itself, so it works with any number of videos in the store (CI has only one)
+    const catalog = page.getByRole('region', { name: 'Video catalog' });
+    await expect(catalog.locator('article').first()).toBeVisible();
+    const ratio = await catalog
+      .locator('.row')
+      .last()
+      .evaluate((row) => {
+        const col = row.querySelector(':scope > .col') as HTMLElement;
+        return col.getBoundingClientRect().width / row.getBoundingClientRect().width;
+      });
+    expect(ratio).toBeGreaterThan(0.23);
+    expect(ratio).toBeLessThan(0.27);
 
     // prefers-reduced-motion turns the animations off
     const pageAnimation = await page
@@ -89,13 +95,17 @@ test.describe('Theme and responsive layout', () => {
   });
 
   test('opening a video from a scrolled catalog starts at the top with the player in view', async ({ page }) => {
-    await page.setViewportSize({ width: 1400, height: 900 });
+    // Short phone viewport: the page is taller than the screen even with a single video (as in CI)
+    await page.setViewportSize({ width: 375, height: 480 });
     await page.goto('/');
     const cards = page.getByRole('region', { name: 'Video catalog' }).locator('article');
-    await cards.nth(9).scrollIntoViewIfNeeded();
-    expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(100);
+    await expect(cards.first()).toBeVisible();
+    const lastCard = cards.last();
+    await lastCard.scrollIntoViewIfNeeded();
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
 
-    await cards.nth(9).getByRole('link').first().click();
+    await lastCard.getByRole('link').first().click();
     await expect(page).toHaveURL(/\/videos\/\d+/);
     await expect(page.getByRole('slider', { name: 'Seek' })).toBeVisible();
     expect(await page.evaluate(() => window.scrollY)).toBe(0);
