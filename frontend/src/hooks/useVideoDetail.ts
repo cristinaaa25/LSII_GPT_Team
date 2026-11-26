@@ -14,6 +14,40 @@ interface UseVideoDetailReturn {
   replaceVideo: (updated: VideoDetail) => void;
 }
 
+const SESSION_VIEW_PREFIX = 'protube_viewed_';
+
+function hasCountedInSession(videoId: string): boolean {
+  try {
+    if (sessionStorage.getItem(`${SESSION_VIEW_PREFIX}${videoId}`) === 'true') {
+      return true;
+    }
+    const raw = sessionStorage.getItem('protube_viewed_videos');
+    if (raw) {
+      const list = JSON.parse(raw);
+      if (Array.isArray(list) && (list.includes(videoId) || list.includes(Number(videoId)))) {
+        return true;
+      }
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+function markCountedInSession(videoId: string): void {
+  try {
+    sessionStorage.setItem(`${SESSION_VIEW_PREFIX}${videoId}`, 'true');
+    const raw = sessionStorage.getItem('protube_viewed_videos');
+    const list: string[] = raw ? JSON.parse(raw) : [];
+    if (!list.includes(videoId)) {
+      list.push(videoId);
+      sessionStorage.setItem('protube_viewed_videos', JSON.stringify(list));
+    }
+  } catch {
+    // ignore
+  }
+}
+
 export function useVideoDetail(id: string | undefined): UseVideoDetailReturn {
   const [video, setVideo] = useState<VideoDetail | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -71,11 +105,17 @@ export function useVideoDetail(id: string | undefined): UseVideoDetailReturn {
     viewRegistered.current = true;
     try {
       const token = authService.getToken();
+      if (!token && hasCountedInSession(id)) {
+        return;
+      }
       const headers: Record<string, string> = {};
       if (token) {
         headers.Authorization = `Bearer ${token}`;
       }
       await axios.post(`${getEnv().API_BASE_URL}/videos/${id}/views`, null, { headers });
+      if (!token) {
+        markCountedInSession(id);
+      }
       setVideo((prev) => (prev ? { ...prev, views: prev.views + 1 } : prev));
     } catch {
       // view registration failure shouldn't disrupt playback

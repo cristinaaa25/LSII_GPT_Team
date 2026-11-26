@@ -74,6 +74,7 @@ const mockVideoResponse = (video: VideoDetail = sampleVideo) => {
 
 describe('VideoDetailPage', () => {
   beforeEach(() => {
+    sessionStorage.clear();
     mockedGet.mockReset();
     mockedPost.mockReset();
     mockedPut.mockReset();

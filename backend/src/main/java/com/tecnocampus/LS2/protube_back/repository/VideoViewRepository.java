@@ -17,6 +17,7 @@ import java.util.List;
 public interface VideoViewRepository extends JpaRepository<VideoView, Long> {
     long countByVideoId(Long videoId);
     List<VideoView> findByVideoId(Long videoId);
+    boolean existsByVideoIdAndViewerIdAndViewedAtGreaterThanEqual(Long videoId, Long viewerId, Instant since);
 
     /**
      * Views of the videos uploaded by {@code uploaderId} since {@code since}, grouped by UTC day in one query.
