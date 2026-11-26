@@ -21,6 +21,7 @@ import com.tecnocampus.LS2.protube_back.repository.VideoViewRepository;
 import com.tecnocampus.LS2.protube_back.security.UserPrincipal;
 import com.tecnocampus.LS2.protube_back.TestImages;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.io.TempDir;
@@ -42,6 +43,10 @@ import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -74,8 +79,19 @@ class VideoServiceTest {
     @Mock
     UserRepository userRepository;
 
-    @InjectMocks
     VideoService videoService;
+
+    @BeforeEach
+    void setUp() {
+        videoService = new VideoService(
+                videoRepository,
+                commentRepository,
+                videoViewRepository,
+                videoLikeRepository,
+                userRepository,
+                "target/test-store/"
+        );
+    }
 
     @AfterEach
     void tearDown() {
@@ -402,6 +418,99 @@ class VideoServiceTest {
         verify(videoViewRepository).save(viewCaptor.capture());
         assertThat(viewCaptor.getValue().getVideo()).isEqualTo(video);
         assertThat(viewCaptor.getValue().getViewer()).isEqualTo(viewer);
+    }
+
+    @Test
+    void registerViewIgnoresDuplicateViewFromSameUserInsideWindow() {
+        Video video = new Video("Cats", "42.mp4", new User("u", "u@e.com", "p"));
+        video.setId(42L);
+        video.setViewCount(10L);
+
+        User viewer = new User("viewerUser", "viewer@e.com", "p");
+        viewer.setId(99L);
+        UserPrincipal principal = UserPrincipal.fromUser(viewer);
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities()));
+
+        Instant t0 = Instant.parse("2026-11-20T10:00:00Z");
+        Clock fixedClock = Clock.fixed(t0, ZoneOffset.UTC);
+        VideoService serviceWithClock = new VideoService(
+                videoRepository, commentRepository, videoViewRepository, videoLikeRepository, userRepository,
+                "target/test-store/", 30L, fixedClock
+        );
+
+        when(videoRepository.findById(42L)).thenReturn(Optional.of(video));
+        when(userRepository.findById(99L)).thenReturn(Optional.of(viewer));
+        when(videoViewRepository.existsByVideoIdAndViewerIdAndViewedAtGreaterThanEqual(42L, 99L, t0.minus(Duration.ofMinutes(30))))
+                .thenReturn(true);
+
+        serviceWithClock.registerView(42L);
+
+        assertThat(video.getViewCount()).isEqualTo(10L);
+        verify(videoViewRepository, never()).save(any());
+        verify(videoRepository, never()).save(any());
+    }
+
+    @Test
+    void registerViewAllowsSecondViewFromSameUserOutsideWindow() {
+        Video video = new Video("Cats", "42.mp4", new User("u", "u@e.com", "p"));
+        video.setId(42L);
+        video.setViewCount(10L);
+
+        User viewer = new User("viewerUser", "viewer@e.com", "p");
+        viewer.setId(99L);
+        UserPrincipal principal = UserPrincipal.fromUser(viewer);
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities()));
+
+        Instant t1 = Instant.parse("2026-11-20T10:31:00Z");
+        Clock fixedClock = Clock.fixed(t1, ZoneOffset.UTC);
+        VideoService serviceWithClock = new VideoService(
+                videoRepository, commentRepository, videoViewRepository, videoLikeRepository, userRepository,
+                "target/test-store/", 30L, fixedClock
+        );
+
+        when(videoRepository.findById(42L)).thenReturn(Optional.of(video));
+        when(userRepository.findById(99L)).thenReturn(Optional.of(viewer));
+        when(videoViewRepository.existsByVideoIdAndViewerIdAndViewedAtGreaterThanEqual(42L, 99L, t1.minus(Duration.ofMinutes(30))))
+                .thenReturn(false);
+
+        serviceWithClock.registerView(42L);
+
+        assertThat(video.getViewCount()).isEqualTo(11L);
+        verify(videoViewRepository).save(any(VideoView.class));
+        verify(videoRepository).save(video);
+    }
+
+    @Test
+    void registerViewAllowsDifferentUsersInsideWindow() {
+        Video video = new Video("Cats", "42.mp4", new User("u", "u@e.com", "p"));
+        video.setId(42L);
+        video.setViewCount(10L);
+
+        User viewerB = new User("userB", "b@e.com", "p");
+        viewerB.setId(100L);
+        UserPrincipal principal = UserPrincipal.fromUser(viewerB);
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities()));
+
+        Instant t0 = Instant.parse("2026-11-20T10:10:00Z");
+        Clock fixedClock = Clock.fixed(t0, ZoneOffset.UTC);
+        VideoService serviceWithClock = new VideoService(
+                videoRepository, commentRepository, videoViewRepository, videoLikeRepository, userRepository,
+                "target/test-store/", 30L, fixedClock
+        );
+
+        when(videoRepository.findById(42L)).thenReturn(Optional.of(video));
+        when(userRepository.findById(100L)).thenReturn(Optional.of(viewerB));
+        when(videoViewRepository.existsByVideoIdAndViewerIdAndViewedAtGreaterThanEqual(42L, 100L, t0.minus(Duration.ofMinutes(30))))
+                .thenReturn(false);
+
+        serviceWithClock.registerView(42L);
+
+        assertThat(video.getViewCount()).isEqualTo(11L);
+        verify(videoViewRepository).save(any(VideoView.class));
+        verify(videoRepository).save(video);
     }
 
     @Test

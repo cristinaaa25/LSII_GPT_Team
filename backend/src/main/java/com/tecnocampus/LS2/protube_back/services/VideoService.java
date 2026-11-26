@@ -42,6 +42,9 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.LinkedHashMap;
@@ -83,6 +86,8 @@ public class VideoService {
     private final UserRepository userRepository;
     private final SubscriptionRepository subscriptionRepository;
     private final String storeDir;
+    private final long dedupMinutes;
+    private final Clock clock;
 
     @Autowired
     public VideoService(
@@ -92,7 +97,9 @@ public class VideoService {
             VideoLikeRepository videoLikeRepository,
             UserRepository userRepository,
             SubscriptionRepository subscriptionRepository,
-            @Value("${pro_tube.store.dir:target/test-store/}") String storeDir) {
+            @Value("${pro_tube.store.dir:target/test-store/}") String storeDir,
+            @Value("${pro_tube.views.dedup-minutes:30}") long dedupMinutes,
+            @Autowired(required = false) Clock clock) {
         this.videoRepository = videoRepository;
         this.commentRepository = commentRepository;
         this.videoViewRepository = videoViewRepository;
@@ -100,6 +107,20 @@ public class VideoService {
         this.userRepository = userRepository;
         this.subscriptionRepository = subscriptionRepository;
         this.storeDir = storeDir != null ? storeDir : "target/test-store/";
+        this.dedupMinutes = dedupMinutes;
+        this.clock = clock != null ? clock : Clock.systemUTC();
+    }
+
+    public VideoService(
+            VideoRepository videoRepository,
+            CommentRepository commentRepository,
+            VideoViewRepository videoViewRepository,
+            VideoLikeRepository videoLikeRepository,
+            UserRepository userRepository,
+            SubscriptionRepository subscriptionRepository,
+            String storeDir) {
+        this(videoRepository, commentRepository, videoViewRepository, videoLikeRepository, userRepository,
+                subscriptionRepository, storeDir, 30L, Clock.systemUTC());
     }
 
     public VideoService(
@@ -110,7 +131,20 @@ public class VideoService {
             UserRepository userRepository,
             String storeDir) {
         this(videoRepository, commentRepository, videoViewRepository, videoLikeRepository, userRepository, null,
-                storeDir);
+                storeDir, 30L, Clock.systemUTC());
+    }
+
+    public VideoService(
+            VideoRepository videoRepository,
+            CommentRepository commentRepository,
+            VideoViewRepository videoViewRepository,
+            VideoLikeRepository videoLikeRepository,
+            UserRepository userRepository,
+            String storeDir,
+            long dedupMinutes,
+            Clock clock) {
+        this(videoRepository, commentRepository, videoViewRepository, videoLikeRepository, userRepository, null,
+                storeDir, dedupMinutes, clock);
     }
 
     public VideoService(
@@ -704,9 +738,19 @@ public class VideoService {
                 .orElseThrow(() -> new NotFoundException("Video not found with id " + id));
 
         User viewer = findCurrentAuthenticatedUser();
-        VideoView view = viewer != null ? new VideoView(video, viewer) : new VideoView(video);
+        Instant now = clock.instant();
+
+        if (viewer != null && dedupMinutes > 0) {
+            Instant cutoff = now.minus(Duration.ofMinutes(dedupMinutes));
+            if (videoViewRepository.existsByVideoIdAndViewerIdAndViewedAtGreaterThanEqual(id, viewer.getId(), cutoff)) {
+                return;
+            }
+        }
+
+        VideoView view = new VideoView(video, viewer, now);
         videoViewRepository.save(view);
-        video.setViewCount(video.getViewCount() + 1);
+        long currentCount = video.getViewCount() != null ? video.getViewCount() : 0L;
+        video.setViewCount(currentCount + 1);
         videoRepository.save(video);
     }
 

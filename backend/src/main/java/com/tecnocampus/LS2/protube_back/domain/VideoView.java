@@ -27,14 +27,17 @@ public class VideoView {
     }
 
     public VideoView(Video video) {
-        this.video = video;
-        this.viewedAt = Instant.now();
+        this(video, null, Instant.now());
     }
 
     public VideoView(Video video, User viewer) {
+        this(video, viewer, Instant.now());
+    }
+
+    public VideoView(Video video, User viewer, Instant viewedAt) {
         this.video = video;
         this.viewer = viewer;
-        this.viewedAt = Instant.now();
+        this.viewedAt = viewedAt != null ? viewedAt : Instant.now();
     }
 
     public Long getId() {

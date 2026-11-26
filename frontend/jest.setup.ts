@@ -40,3 +40,11 @@ if (typeof jsdomWindow.matchMedia !== 'function') {
 // jsdom does not implement scrolling: a no-op keeps route changes quiet (tests can still spy on it).
 const jsdomScroll = globalThis as unknown as { scrollTo?: unknown };
 Object.defineProperty(jsdomScroll, 'scrollTo', { writable: true, configurable: true, value: () => undefined });
+
+beforeEach(() => {
+  try {
+    sessionStorage.clear();
+  } catch {
+    // ignore
+  }
+});
