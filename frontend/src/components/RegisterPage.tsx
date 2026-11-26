@@ -162,7 +162,7 @@ export const RegisterPage: React.FC = () => {
                   />
                 </div>
 
-                <button type="submit" className="btn btn-primary w-100 py-2 fw-semibold" disabled={isLoading}>
+                <button type="submit" className="btn btn-primary btn-lg w-100" disabled={isLoading}>
                   {isLoading ? 'Creating account...' : 'Register'}
                 </button>
               </form>

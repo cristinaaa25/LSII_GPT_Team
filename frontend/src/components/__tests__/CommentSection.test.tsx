@@ -271,14 +271,14 @@ describe('CommentSection', () => {
 
     // Comment 1 is currently likedByMe: false -> clicking calls PUT
     const likeBtn = await screen.findByRole('button', { name: 'Like comment by alice' });
-    expect(likeBtn).toHaveTextContent('👍 5');
+    expect(likeBtn).toHaveTextContent('5');
 
     await act(async () => {
       fireEvent.click(likeBtn);
     });
 
     expect(mockedPut).toHaveBeenCalledWith(expect.stringContaining('/comments/1/like'), {}, expect.any(Object));
-    expect(likeBtn).toHaveTextContent('👍 6');
+    expect(likeBtn).toHaveTextContent('6');
 
     // Comment 2 is likedByMe: true -> clicking calls DELETE
     mockedDelete.mockResolvedValueOnce({
@@ -286,14 +286,14 @@ describe('CommentSection', () => {
     });
 
     const replyLikeBtn = screen.getByRole('button', { name: 'Like reply by bob' });
-    expect(replyLikeBtn).toHaveTextContent('👍 1');
+    expect(replyLikeBtn).toHaveTextContent('1');
 
     await act(async () => {
       fireEvent.click(replyLikeBtn);
     });
 
     expect(mockedDelete).toHaveBeenCalledWith(expect.stringContaining('/comments/2/like'), expect.any(Object));
-    expect(replyLikeBtn).toHaveTextContent('👍 0');
+    expect(replyLikeBtn).toHaveTextContent('0');
   });
 
   it('shows empty state when there are no comments', async () => {
@@ -519,7 +519,7 @@ describe('CommentSection', () => {
         screen.getByText('Are you sure you want to delete this comment? This action cannot be undone.')
       ).toBeInTheDocument();
 
-      const cancelBtn = screen.getByRole('dialog').querySelector('.modal-footer .btn-secondary') as HTMLElement;
+      const cancelBtn = screen.getByRole('dialog').querySelector('.modal-footer .btn-soft') as HTMLElement;
       fireEvent.click(cancelBtn);
 
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument();

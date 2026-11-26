@@ -1,8 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import { useToast } from '../hooks/useToast';
+import Avatar from './Avatar';
 import { userService } from '../services/userService';
 import { resolveAvatarUrl } from '../utils/format';
+import Icon from './Icon';
 
 const ALLOWED_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
 const ALLOWED_EXTS = ['.png', '.jpg', '.jpeg', '.webp'];
@@ -10,17 +13,16 @@ const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2MB
 
 export const ProfilePage: React.FC = () => {
   const { user, updateUser } = useAuth();
+  const { showToast } = useToast();
 
   const [displayName, setDisplayName] = useState(user?.displayName ?? '');
   const [description, setDescription] = useState(user?.description ?? '');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
 
-  const [profileSuccess, setProfileSuccess] = useState<string | null>(null);
   const [profileError, setProfileError] = useState<string | null>(null);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
 
-  const [avatarSuccess, setAvatarSuccess] = useState<string | null>(null);
   const [avatarError, setAvatarError] = useState<string | null>(null);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
 
@@ -37,7 +39,6 @@ export const ProfilePage: React.FC = () => {
 
   const handleProfileSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setProfileSuccess(null);
     setProfileError(null);
 
     if (displayName.length > 100) {
@@ -58,7 +59,7 @@ export const ProfilePage: React.FC = () => {
       if (updateUser) {
         updateUser(updated);
       }
-      setProfileSuccess('Profile updated successfully');
+      showToast('Profile updated successfully');
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to update profile';
       setProfileError(msg);
@@ -69,7 +70,6 @@ export const ProfilePage: React.FC = () => {
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setAvatarError(null);
-    setAvatarSuccess(null);
     const file = e.target.files?.[0];
     if (!file) {
       setSelectedFile(null);
@@ -108,14 +108,13 @@ export const ProfilePage: React.FC = () => {
 
     setIsUploadingAvatar(true);
     setAvatarError(null);
-    setAvatarSuccess(null);
 
     try {
       const updated = await userService.uploadAvatar(selectedFile);
       if (updateUser) {
         updateUser(updated);
       }
-      setAvatarSuccess('Avatar updated successfully');
+      showToast('Avatar updated successfully');
       setSelectedFile(null);
       setAvatarPreview(null);
     } catch (err: unknown) {
@@ -127,16 +126,15 @@ export const ProfilePage: React.FC = () => {
   };
 
   const currentAvatarUrl = avatarPreview || resolveAvatarUrl(user.avatarUrl);
-  const initial = user.username.charAt(0).toUpperCase();
 
   return (
     <div className="container py-4" style={{ maxWidth: '720px' }}>
       <div className="d-flex justify-content-between align-items-center mb-4 border-bottom pb-3">
         <div>
           <h1 className="h3 mb-1">Your Profile</h1>
-          <p className="text-secondary mb-0">Manage your profile details and avatar</p>
+          <p className="text-body-secondary mb-0">Manage your profile details and avatar</p>
         </div>
-        <Link to={`/users/${encodeURIComponent(user.username)}`} className="btn btn-outline-primary btn-sm">
+        <Link to={`/users/${encodeURIComponent(user.username)}`} className="btn btn-soft">
           View Public Profile
         </Link>
       </div>
@@ -147,12 +145,23 @@ export const ProfilePage: React.FC = () => {
           <h2 className="card-title h5 mb-3">Account Information</h2>
           <div className="row g-3">
             <div className="col-sm-6">
-              <label className="form-label text-secondary small mb-1">Username</label>
-              <input type="text" className="form-control" value={user.username} disabled readOnly />
+              <label htmlFor="account-username" className="form-label text-body-secondary small mb-1">
+                Username
+              </label>
+              <input
+                id="account-username"
+                type="text"
+                className="form-control"
+                value={user.username}
+                disabled
+                readOnly
+              />
             </div>
             <div className="col-sm-6">
-              <label className="form-label text-secondary small mb-1">Email</label>
-              <input type="email" className="form-control" value={user.email} disabled readOnly />
+              <label htmlFor="account-email" className="form-label text-body-secondary small mb-1">
+                Email
+              </label>
+              <input id="account-email" type="email" className="form-control" value={user.email} disabled readOnly />
             </div>
           </div>
         </div>
@@ -163,11 +172,6 @@ export const ProfilePage: React.FC = () => {
         <div className="card-body">
           <h2 className="card-title h5 mb-3">Avatar</h2>
 
-          {avatarSuccess && (
-            <div className="alert alert-success py-2" role="alert">
-              {avatarSuccess}
-            </div>
-          )}
           {avatarError && (
             <div className="alert alert-danger py-2" role="alert">
               {avatarError}
@@ -175,37 +179,20 @@ export const ProfilePage: React.FC = () => {
           )}
 
           <div className="d-flex align-items-center gap-3 mb-3">
-            {currentAvatarUrl ? (
-              <img
-                src={currentAvatarUrl}
-                alt={user.username}
-                className="rounded-circle border"
-                style={{ width: '80px', height: '80px', objectFit: 'cover' }}
-              />
-            ) : (
-              <span
-                className="rounded-circle bg-primary text-white d-inline-flex justify-content-center align-items-center fs-2 fw-bold"
-                style={{ width: '80px', height: '80px' }}
-              >
-                {initial}
-              </span>
-            )}
-            <div className="text-secondary small">Upload a PNG, JPG or WEBP image up to 2MB.</div>
+            <Avatar src={currentAvatarUrl} name={user.username} size={80} className="border" />
+            <div className="text-body-secondary small">Upload a PNG, JPG or WEBP image up to 2MB.</div>
           </div>
 
           <form onSubmit={handleAvatarUpload} className="d-flex flex-column flex-sm-row gap-2">
             <input
               type="file"
-              className="form-control"
+              className="form-control flex-grow-1"
               accept="image/png,image/jpeg,image/webp"
               onChange={handleFileChange}
               aria-label="Choose avatar image"
             />
-            <button
-              type="submit"
-              className="btn btn-outline-primary text-nowrap"
-              disabled={!selectedFile || isUploadingAvatar}
-            >
+            <button type="submit" className="btn btn-soft" disabled={!selectedFile || isUploadingAvatar}>
+              <Icon name="upload" />
               {isUploadingAvatar ? 'Uploading...' : 'Upload Avatar'}
             </button>
           </form>
@@ -217,11 +204,6 @@ export const ProfilePage: React.FC = () => {
         <div className="card-body">
           <h2 className="card-title h5 mb-3">Profile Details</h2>
 
-          {profileSuccess && (
-            <div className="alert alert-success py-2" role="alert">
-              {profileSuccess}
-            </div>
-          )}
           {profileError && (
             <div className="alert alert-danger py-2" role="alert">
               {profileError}

@@ -67,11 +67,11 @@ export const SortableVideoTable: React.FC<Props> = ({ videos }) => {
   };
 
   return (
-    <div className="card shadow-sm">
+    <div className="card shadow-sm overflow-hidden">
       <div className="card-body p-0">
         <div className="table-responsive">
           <table className="table table-hover align-middle mb-0" aria-label="Per-video analytics">
-            <thead className="table-light">
+            <thead className="pt-thead">
               <tr>
                 <th
                   scope="col"
@@ -143,27 +143,26 @@ export const SortableVideoTable: React.FC<Props> = ({ videos }) => {
                           style={{
                             width: '80px',
                             height: '45px',
-                            backgroundColor: '#212529',
+                            backgroundColor: 'var(--pt-surface-2)',
                             overflow: 'hidden',
                             borderRadius: '4px',
                             flexShrink: 0,
                           }}
                         >
                           {thumb ? (
-                            <img
-                              src={thumb}
-                              alt={video.title}
-                              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                            />
+                            <img src={thumb} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                           ) : (
-                            <div className="d-flex w-100 h-100 justify-content-center align-items-center text-white-50">
+                            <div
+                              className="d-flex w-100 h-100 justify-content-center align-items-center pt-thumb-placeholder"
+                              aria-hidden="true"
+                            >
                               ▶
                             </div>
                           )}
                         </div>
                         <Link
                           to={`/videos/${video.id}`}
-                          className="text-decoration-none text-dark fw-semibold text-truncate d-inline-block"
+                          className="text-decoration-none text-body fw-semibold text-truncate d-inline-block"
                           style={{ maxWidth: '320px' }}
                           title={video.title}
                         >

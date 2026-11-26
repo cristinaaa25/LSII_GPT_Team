@@ -1,0 +1,1298 @@
+/*
+ * ProTube theme: the single place for colours, fonts, radii, shadows and motion.
+ * The --pt-* tokens are the brand; the blocks below map them onto Bootstrap 5.3 variables
+ * so every Bootstrap component follows the active theme (data-bs-theme on <html>).
+ * To rebrand, change the tokens here and the files in public/ (logo.svg, logo-dark.svg, favicon.svg).
+ * Accent (coral) is for icons and fills only, never for small text (contrast).
+ */
+
+:root,
+[data-bs-theme='light'] {
+  --pt-primary: #5b4bdb;
+  --pt-primary-rgb: 91, 75, 219;
+  --pt-primary-hover: #4a3bc4;
+  --pt-on-primary: #ffffff;
+  --pt-accent: #ff7a59;
+  --pt-bg: #f7f7fb;
+  --pt-bg-rgb: 247, 247, 251;
+  --pt-surface: #ffffff;
+  --pt-surface-rgb: 255, 255, 255;
+  --pt-surface-2: #efeef7;
+  --pt-surface-2-rgb: 239, 238, 247;
+  --pt-text: #1c1b29;
+  --pt-text-rgb: 28, 27, 41;
+  --pt-muted: #6b6a80;
+  --pt-muted-rgb: 107, 106, 128;
+  --pt-border: #dedcec;
+  --pt-danger-text: #b02a37;
+  --pt-danger: #c62f3e;
+  --pt-danger-hover: #a92633;
+  --pt-on-danger: #ffffff;
+  --pt-danger-rgb: 220, 53, 69;
+  --pt-tint-text: #4a3bc4;
+  --pt-tint-bg: rgba(91, 75, 219, 0.2);
+  --pt-tint-bg-hover: rgba(91, 75, 219, 0.28);
+  --pt-tint-border: rgba(91, 75, 219, 0.45);
+  --pt-success-text: #146c43;
+  --pt-skeleton: #e6e5f0;
+  --pt-skeleton-shine: #f3f2f9;
+
+  --pt-font-sans: Inter, 'Segoe UI', system-ui, -apple-system, Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --pt-radius-sm: 0.5rem;
+  --pt-radius: 0.875rem;
+  --pt-radius-lg: 1.25rem;
+  --pt-radius-pill: 999px;
+
+  /* Header controls: one height for every button, the search bar and the user menu */
+  --pt-control-h: 2.5rem;
+  --pt-control-px: 1.125rem;
+  --pt-control-font: 0.9375rem;
+  --pt-header-gap: 0.5rem;
+  --pt-control-h-sm: 2rem;
+  --pt-control-px-sm: 0.875rem;
+  --pt-control-font-sm: 0.8125rem;
+  --pt-control-h-lg: 3rem;
+  --pt-icon-size: 1.0625rem;
+  --pt-shadow-sm: 0 1px 2px rgba(28, 27, 41, 0.06), 0 1px 3px rgba(28, 27, 41, 0.08);
+  --pt-shadow: 0 4px 12px rgba(28, 27, 41, 0.1);
+  --pt-shadow-lg: 0 12px 28px rgba(28, 27, 41, 0.16);
+  --pt-focus-ring: 0 0 0 3px rgba(91, 75, 219, 0.45);
+
+  --pt-duration: 180ms;
+  --pt-ease: cubic-bezier(0.2, 0.7, 0.3, 1);
+}
+
+[data-bs-theme='dark'] {
+  --pt-primary: #8b7ff0;
+  --pt-primary-rgb: 139, 127, 240;
+  --pt-primary-hover: #a197f4;
+  --pt-on-primary: #121220;
+  --pt-accent: #ff8f73;
+  --pt-bg: #121220;
+  --pt-bg-rgb: 18, 18, 32;
+  --pt-surface: #1c1b2e;
+  --pt-surface-rgb: 28, 27, 46;
+  --pt-surface-2: #26253c;
+  --pt-surface-2-rgb: 38, 37, 60;
+  --pt-text: #ecebf5;
+  --pt-text-rgb: 236, 235, 245;
+  --pt-muted: #a3a2b8;
+  --pt-muted-rgb: 163, 162, 184;
+  --pt-border: #34334d;
+  --pt-danger-text: #f08a94;
+  --pt-danger: #c62f3e;
+  --pt-danger-hover: #a92633;
+  --pt-on-danger: #ffffff;
+  --pt-danger-rgb: 240, 90, 105;
+  --pt-tint-text: #c3bdfa;
+  --pt-tint-bg: rgba(139, 127, 240, 0.32);
+  --pt-tint-bg-hover: rgba(139, 127, 240, 0.4);
+  --pt-tint-border: rgba(139, 127, 240, 0.7);
+  --pt-success-text: #75d6a3;
+  --pt-skeleton: #26253c;
+  --pt-skeleton-shine: #313049;
+  --pt-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --pt-shadow: 0 4px 12px rgba(0, 0, 0, 0.45);
+  --pt-shadow-lg: 0 12px 28px rgba(0, 0, 0, 0.55);
+  --pt-focus-ring: 0 0 0 3px rgba(139, 127, 240, 0.6);
+  color-scheme: dark;
+}
+
+/* ---------- Bootstrap mapping ---------- */
+
+:root,
+[data-bs-theme='light'],
+[data-bs-theme='dark'] {
+  --bs-primary: var(--pt-primary);
+  --bs-primary-rgb: var(--pt-primary-rgb);
+  --bs-primary-text-emphasis: var(--pt-primary);
+  --bs-primary-bg-subtle: rgba(var(--pt-primary-rgb), 0.12);
+  --bs-primary-border-subtle: rgba(var(--pt-primary-rgb), 0.35);
+  --bs-body-font-family: var(--pt-font-sans);
+  --bs-body-bg: var(--pt-bg);
+  --bs-body-bg-rgb: var(--pt-bg-rgb);
+  --bs-body-color: var(--pt-text);
+  --bs-body-color-rgb: var(--pt-text-rgb);
+  --bs-emphasis-color: var(--pt-text);
+  --bs-heading-color: var(--pt-text);
+  --bs-secondary-color: var(--pt-muted);
+  --bs-secondary-color-rgb: var(--pt-muted-rgb);
+  --bs-secondary-bg: var(--pt-surface-2);
+  --bs-secondary-bg-rgb: var(--pt-surface-2-rgb);
+  --bs-tertiary-bg: var(--pt-surface-2);
+  --bs-tertiary-bg-rgb: var(--pt-surface-2-rgb);
+  --bs-secondary-bg-subtle: var(--pt-surface-2);
+  --bs-secondary-text-emphasis: var(--pt-text);
+  --bs-secondary-border-subtle: var(--pt-border);
+  --bs-light-bg-subtle: var(--pt-surface-2);
+  --bs-border-color-translucent: var(--pt-border);
+  --bs-border-color: var(--pt-border);
+  --bs-link-color: var(--pt-primary);
+  --bs-link-color-rgb: var(--pt-primary-rgb);
+  --bs-link-hover-color: var(--pt-primary-hover);
+  --bs-border-radius: var(--pt-radius);
+  --bs-border-radius-sm: var(--pt-radius-sm);
+  --bs-border-radius-lg: var(--pt-radius-lg);
+  --bs-box-shadow-sm: var(--pt-shadow-sm);
+  --bs-box-shadow: var(--pt-shadow);
+  --bs-box-shadow-lg: var(--pt-shadow-lg);
+  --bs-focus-ring-color: rgba(var(--pt-primary-rgb), 0.45);
+}
+
+body {
+  background-color: var(--pt-bg);
+  color: var(--pt-text);
+  overflow-x: hidden;
+}
+
+.card {
+  --bs-card-bg: var(--pt-surface);
+  --bs-card-border-color: var(--pt-border);
+}
+
+.dropdown-menu {
+  --bs-dropdown-bg: var(--pt-surface);
+  --bs-dropdown-border-color: var(--pt-border);
+  --bs-dropdown-link-color: var(--pt-text);
+  --bs-dropdown-link-hover-bg: var(--pt-surface-2);
+  --bs-dropdown-link-hover-color: var(--pt-text);
+  --bs-dropdown-link-active-bg: var(--pt-primary);
+  --bs-dropdown-link-active-color: var(--pt-on-primary);
+}
+
+.list-group {
+  --bs-list-group-bg: var(--pt-surface);
+  --bs-list-group-border-color: var(--pt-border);
+  --bs-list-group-color: var(--pt-text);
+}
+
+.table {
+  --bs-table-bg: var(--pt-surface);
+  --bs-table-color: var(--pt-text);
+  --bs-table-border-color: var(--pt-border);
+}
+
+.modal {
+  --bs-modal-bg: var(--pt-surface);
+}
+
+.toast {
+  --bs-toast-bg: var(--pt-surface);
+  --bs-toast-color: var(--pt-text);
+  --bs-toast-border-color: var(--pt-border);
+}
+
+/* ---------- Inputs ---------- */
+
+.form-control,
+.form-select {
+  background-color: var(--pt-surface);
+  color: var(--pt-text);
+  border-color: var(--pt-border);
+  font-size: var(--pt-control-font);
+}
+
+/* Single-line inputs follow the button heights and are pills; textareas keep the softer card radius */
+.form-control:not(textarea):not([type='file']),
+.form-select {
+  height: var(--pt-control-h);
+  padding-block: 0;
+  padding-inline: var(--pt-control-px);
+  border-radius: var(--pt-radius-pill);
+}
+
+.form-select {
+  padding-right: 2.5rem;
+  background-position: right 1rem center;
+}
+
+.form-control-sm:not(textarea):not([type='file']),
+.form-select-sm {
+  height: var(--pt-control-h-sm);
+  padding-inline: var(--pt-control-px-sm);
+  font-size: var(--pt-control-font-sm);
+}
+
+.form-select-sm {
+  padding-right: 2rem;
+  background-position: right 0.75rem center;
+}
+
+textarea.form-control {
+  border-radius: var(--pt-radius);
+  padding: 0.625rem var(--pt-control-px);
+}
+
+/* File inputs: same 40px pill as the rest, the "Choose file" part is a soft segment on the left */
+.form-control[type='file'] {
+  min-width: 0;
+  height: var(--pt-control-h);
+  padding: 0 var(--pt-control-px) 0 0;
+  border-radius: var(--pt-radius-pill);
+  line-height: calc(var(--pt-control-h) - 2px);
+  overflow: hidden;
+}
+
+.form-control[type='file']::file-selector-button {
+  height: 100%;
+  margin: 0;
+  margin-inline-end: 0.875rem;
+  padding: 0 1rem 0 var(--pt-control-px);
+  border: 0;
+  border-inline-end: 1px solid var(--pt-border);
+  border-radius: 0;
+  line-height: 1;
+  vertical-align: top;
+}
+
+.form-control[type='file']:hover:not(:disabled):not([readonly])::file-selector-button {
+  background-color: rgba(var(--pt-primary-rgb), 0.16);
+  color: var(--pt-tint-text);
+}
+
+.form-control::file-selector-button {
+  background-color: var(--pt-surface-2);
+  color: var(--pt-text);
+  font-weight: 600;
+}
+
+.form-control::placeholder {
+  color: var(--pt-muted);
+}
+
+.form-control:focus,
+.form-select:focus,
+.form-check-input:focus {
+  border-color: var(--pt-primary);
+  box-shadow: var(--pt-focus-ring);
+}
+
+.form-check-input:checked {
+  background-color: var(--pt-primary);
+  border-color: var(--pt-primary);
+}
+
+.progress {
+  --bs-progress-bar-bg: var(--pt-primary);
+  --bs-progress-bg: var(--pt-surface-2);
+}
+
+/* ---------- Buttons: one system for the whole app (follows the header) ---------- */
+
+.btn:not(.btn-link) {
+  --bs-btn-padding-y: 0;
+  --bs-btn-padding-x: var(--pt-control-px);
+  --bs-btn-font-size: var(--pt-control-font);
+  --bs-btn-font-weight: 600;
+  --bs-btn-line-height: 1;
+  --bs-btn-border-radius: var(--pt-radius-pill);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  height: var(--pt-control-h);
+  white-space: nowrap;
+}
+
+.btn-sm:not(.btn-link) {
+  --bs-btn-padding-x: var(--pt-control-px-sm);
+  --bs-btn-font-size: var(--pt-control-font-sm);
+  gap: 0.375rem;
+  height: var(--pt-control-h-sm);
+}
+
+/* Big call to action (login / register submit) */
+.btn-lg:not(.btn-link) {
+  --bs-btn-padding-x: 1.5rem;
+  --bs-btn-font-size: 1rem;
+  height: var(--pt-control-h-lg);
+}
+
+.btn svg {
+  flex-shrink: 0;
+  width: var(--pt-icon-size);
+  height: var(--pt-icon-size);
+}
+
+.btn-sm svg {
+  width: 0.9375rem;
+  height: 0.9375rem;
+}
+
+/* Square icon-only buttons are round */
+.btn.pt-btn-icon {
+  --bs-btn-padding-x: 0;
+  width: var(--pt-control-h);
+}
+
+.btn-sm.pt-btn-icon {
+  width: var(--pt-control-h-sm);
+}
+
+/* primary: filled indigo (header Upload / Register) */
+.btn-primary {
+  --bs-btn-color: var(--pt-on-primary);
+  --bs-btn-bg: var(--pt-primary);
+  --bs-btn-border-color: var(--pt-primary);
+  --bs-btn-hover-color: var(--pt-on-primary);
+  --bs-btn-hover-bg: var(--pt-primary-hover);
+  --bs-btn-hover-border-color: var(--pt-primary-hover);
+  --bs-btn-active-color: var(--pt-on-primary);
+  --bs-btn-active-bg: var(--pt-primary-hover);
+  --bs-btn-active-border-color: var(--pt-primary-hover);
+  --bs-btn-disabled-color: var(--pt-on-primary);
+  --bs-btn-disabled-bg: var(--pt-primary);
+  --bs-btn-disabled-border-color: var(--pt-primary);
+  --bs-btn-focus-shadow-rgb: var(--pt-primary-rgb);
+}
+
+/* outline-primary: header Log In */
+.btn-outline-primary {
+  --bs-btn-color: var(--pt-primary);
+  --bs-btn-border-color: var(--pt-primary);
+  --bs-btn-hover-color: var(--pt-on-primary);
+  --bs-btn-hover-bg: var(--pt-primary);
+  --bs-btn-hover-border-color: var(--pt-primary);
+  --bs-btn-active-color: var(--pt-on-primary);
+  --bs-btn-active-bg: var(--pt-primary);
+  --bs-btn-active-border-color: var(--pt-primary);
+  --bs-btn-disabled-color: var(--pt-primary);
+  --bs-btn-disabled-border-color: var(--pt-primary);
+  --bs-btn-focus-shadow-rgb: var(--pt-primary-rgb);
+}
+
+/* soft: tinted surface, primary tint on hover (header search button). Bootstrap's grey variants map here. */
+.btn-soft,
+.btn-secondary,
+.btn-outline-secondary,
+.btn-light {
+  --bs-btn-color: var(--pt-text);
+  --bs-btn-bg: var(--pt-surface-2);
+  --bs-btn-border-color: transparent;
+  --bs-btn-hover-color: var(--pt-tint-text);
+  --bs-btn-hover-bg: rgba(var(--pt-primary-rgb), 0.16);
+  --bs-btn-hover-border-color: transparent;
+  --bs-btn-active-color: var(--pt-tint-text);
+  --bs-btn-active-bg: rgba(var(--pt-primary-rgb), 0.22);
+  --bs-btn-active-border-color: transparent;
+  --bs-btn-disabled-color: var(--pt-muted);
+  --bs-btn-disabled-bg: var(--pt-surface-2);
+  --bs-btn-disabled-border-color: transparent;
+  --bs-btn-focus-shadow-rgb: var(--pt-primary-rgb);
+}
+
+/* tint: selected / "on" state (liked video or comment, selected chip) */
+.btn-tint {
+  --bs-btn-color: var(--pt-tint-text);
+  --bs-btn-bg: var(--pt-tint-bg);
+  --bs-btn-border-color: var(--pt-tint-border);
+  --bs-btn-hover-color: var(--pt-tint-text);
+  --bs-btn-hover-bg: var(--pt-tint-bg-hover);
+  --bs-btn-hover-border-color: var(--pt-tint-border);
+  --bs-btn-active-color: var(--pt-tint-text);
+  --bs-btn-active-bg: var(--pt-tint-bg-hover);
+  --bs-btn-active-border-color: var(--pt-tint-border);
+  --bs-btn-disabled-color: var(--pt-tint-text);
+  --bs-btn-disabled-bg: var(--pt-tint-bg);
+  --bs-btn-disabled-border-color: var(--pt-tint-border);
+  --bs-btn-focus-shadow-rgb: var(--pt-primary-rgb);
+}
+
+/* ghost: transparent row actions (Reply, Edit on comments, Cancel) */
+.btn-ghost {
+  --bs-btn-color: var(--pt-muted);
+  --bs-btn-bg: transparent;
+  --bs-btn-border-color: transparent;
+  --bs-btn-hover-color: var(--pt-text);
+  --bs-btn-hover-bg: var(--pt-surface-2);
+  --bs-btn-hover-border-color: transparent;
+  --bs-btn-active-color: var(--pt-text);
+  --bs-btn-active-bg: var(--pt-surface-2);
+  --bs-btn-active-border-color: transparent;
+  --bs-btn-disabled-color: var(--pt-muted);
+  --bs-btn-disabled-border-color: transparent;
+  --bs-btn-focus-shadow-rgb: var(--pt-primary-rgb);
+}
+
+/* soft danger: in-page destructive actions. btn-outline-danger maps here. */
+.btn-soft-danger,
+.btn-outline-danger {
+  --bs-btn-color: var(--pt-danger-text);
+  --bs-btn-bg: rgba(var(--pt-danger-rgb), 0.12);
+  --bs-btn-border-color: transparent;
+  --bs-btn-hover-color: var(--pt-danger-text);
+  --bs-btn-hover-bg: rgba(var(--pt-danger-rgb), 0.2);
+  --bs-btn-hover-border-color: transparent;
+  --bs-btn-active-color: var(--pt-danger-text);
+  --bs-btn-active-bg: rgba(var(--pt-danger-rgb), 0.26);
+  --bs-btn-active-border-color: transparent;
+  --bs-btn-disabled-color: var(--pt-danger-text);
+  --bs-btn-disabled-bg: rgba(var(--pt-danger-rgb), 0.12);
+  --bs-btn-disabled-border-color: transparent;
+  --bs-btn-focus-shadow-rgb: var(--pt-danger-rgb);
+}
+
+/* ghost danger: a delete row action that stays quiet until hovered */
+.btn-ghost-danger {
+  --bs-btn-color: var(--pt-danger-text);
+  --bs-btn-bg: transparent;
+  --bs-btn-border-color: transparent;
+  --bs-btn-hover-color: var(--pt-danger-text);
+  --bs-btn-hover-bg: rgba(var(--pt-danger-rgb), 0.12);
+  --bs-btn-hover-border-color: transparent;
+  --bs-btn-active-color: var(--pt-danger-text);
+  --bs-btn-active-bg: rgba(var(--pt-danger-rgb), 0.2);
+  --bs-btn-active-border-color: transparent;
+  --bs-btn-disabled-color: var(--pt-danger-text);
+  --bs-btn-disabled-border-color: transparent;
+  --bs-btn-focus-shadow-rgb: var(--pt-danger-rgb);
+}
+
+/* danger: filled, only for the final confirm inside a modal */
+.btn-danger {
+  --bs-btn-color: var(--pt-on-danger);
+  --bs-btn-bg: var(--pt-danger);
+  --bs-btn-border-color: var(--pt-danger);
+  --bs-btn-hover-color: var(--pt-on-danger);
+  --bs-btn-hover-bg: var(--pt-danger-hover);
+  --bs-btn-hover-border-color: var(--pt-danger-hover);
+  --bs-btn-active-color: var(--pt-on-danger);
+  --bs-btn-active-bg: var(--pt-danger-hover);
+  --bs-btn-active-border-color: var(--pt-danger-hover);
+  --bs-btn-disabled-color: var(--pt-on-danger);
+  --bs-btn-disabled-bg: var(--pt-danger);
+  --bs-btn-disabled-border-color: var(--pt-danger);
+  --bs-btn-focus-shadow-rgb: var(--pt-danger-rgb);
+}
+
+/* Bootstrap's default red/green text is too dark on the dark background (WCAG AA). */
+.text-danger {
+  color: var(--pt-danger-text) !important;
+}
+
+.text-success {
+  color: var(--pt-success-text) !important;
+}
+
+/* Small counter inside a button (category totals) */
+.pt-chip-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.375rem;
+  height: 1.25rem;
+  padding: 0 0.375rem;
+  border-radius: var(--pt-radius-pill);
+  background: rgba(var(--pt-text-rgb), 0.1);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.btn-primary .pt-chip-count {
+  background: rgba(var(--pt-bg-rgb), 0.25);
+}
+
+/* ---------- Joined input + action (generalised header search) ---------- */
+
+.pt-input-pill {
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+  height: var(--pt-control-h);
+  border: 1px solid var(--pt-border);
+  border-radius: var(--pt-radius-pill);
+  background: var(--pt-surface);
+  overflow: hidden;
+  transition:
+    border-color var(--pt-duration) var(--pt-ease),
+    box-shadow var(--pt-duration) var(--pt-ease);
+}
+
+.pt-input-pill:focus-within {
+  border-color: var(--pt-primary);
+  box-shadow: var(--pt-focus-ring);
+}
+
+.pt-input-pill.is-invalid {
+  border-color: var(--bs-form-invalid-border-color);
+}
+
+.pt-input-pill > .form-control,
+.pt-input-pill > .form-control:focus,
+.pt-input-pill > .form-control:focus-visible {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 100%;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  outline: none;
+}
+
+.pt-input-pill > .btn {
+  --bs-btn-border-radius: 0;
+  height: 100%;
+  border: 0;
+}
+
+.pt-input-pill > .btn:last-child {
+  border-top-right-radius: var(--pt-radius-pill);
+  border-bottom-right-radius: var(--pt-radius-pill);
+}
+
+.pt-input-pill > .btn:not(.btn-primary) {
+  border-left: 1px solid var(--pt-border);
+}
+
+.pt-input-pill > .btn:focus-visible {
+  box-shadow: none;
+  outline: 2px solid var(--pt-primary);
+  outline-offset: -4px;
+}
+
+.pt-input-pill-sm {
+  height: var(--pt-control-h-sm);
+}
+
+.pt-input-pill-sm > .form-control {
+  padding-inline: var(--pt-control-px-sm);
+  font-size: var(--pt-control-font-sm);
+}
+
+.nav-link {
+  --bs-nav-link-color: var(--pt-primary);
+  --bs-nav-link-hover-color: var(--pt-primary-hover);
+}
+
+.nav-pills {
+  --bs-nav-pills-link-active-bg: var(--pt-primary);
+  --bs-nav-pills-link-active-color: var(--pt-on-primary);
+}
+
+.page-link {
+  --bs-pagination-color: var(--pt-primary);
+  --bs-pagination-active-bg: var(--pt-primary);
+  --bs-pagination-active-border-color: var(--pt-primary);
+}
+
+/* ---------- Focus ---------- */
+
+:focus-visible {
+  outline: 3px solid var(--pt-primary);
+  outline-offset: 2px;
+}
+
+.btn:focus-visible,
+.form-control:focus-visible,
+.form-select:focus-visible {
+  outline: none;
+  box-shadow: var(--pt-focus-ring);
+}
+
+.skip-link {
+  position: absolute;
+  left: 1rem;
+  top: -100px;
+  z-index: 2000;
+  padding: 0.5rem 1rem;
+  border-radius: var(--pt-radius-sm);
+  background: var(--pt-primary);
+  color: var(--pt-on-primary);
+}
+
+.skip-link:focus {
+  top: 0.5rem;
+}
+
+/* ---------- Header ---------- */
+
+.pt-header {
+  background-color: var(--pt-surface);
+  border-bottom: 1px solid var(--pt-border);
+  box-shadow: var(--pt-shadow-sm);
+  padding-block: 0.625rem;
+}
+
+/* Every group in the bar is a centred flex row, so all controls share one centre line */
+.pt-header-bar,
+.pt-header-group {
+  display: flex;
+  align-items: center;
+  gap: var(--pt-header-gap);
+}
+
+.pt-header-bar {
+  flex-wrap: wrap;
+  padding-inline: 1rem;
+}
+
+.pt-header-group {
+  flex-wrap: wrap;
+}
+
+@media (min-width: 992px) {
+  .pt-header-bar {
+    flex-wrap: nowrap;
+    padding-inline: 1.5rem;
+  }
+
+  .pt-nav-collapse {
+    gap: var(--pt-header-gap);
+  }
+}
+
+/* Open mobile menu: search full width on top, actions below, everything still centred per row */
+@media (max-width: 991.98px) {
+  .pt-nav-collapse.show {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+    padding-block: 0.75rem 0.25rem;
+  }
+
+  .pt-nav-collapse.show .pt-search {
+    max-width: none;
+  }
+}
+
+.pt-logo {
+  display: block;
+  height: 36px;
+  width: auto;
+}
+
+/* Text buttons (Upload, Log In, Register, user menu): same height, padding and font, pill shaped */
+.pt-header-btn {
+  --bs-btn-padding-y: 0;
+  --bs-btn-padding-x: var(--pt-control-px);
+  --bs-btn-font-size: var(--pt-control-font);
+  --bs-btn-font-weight: 600;
+  --bs-btn-line-height: 1;
+  --bs-btn-border-radius: var(--pt-radius-pill);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  height: var(--pt-control-h);
+  white-space: nowrap;
+}
+
+/* Square icon buttons (theme toggle, hamburger): round, same height as the rest */
+.pt-icon-btn {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: var(--pt-control-h);
+  height: var(--pt-control-h);
+  padding: 0;
+  border: 1px solid var(--pt-border);
+  border-radius: 50%;
+  background: var(--pt-surface);
+  color: var(--pt-text);
+  transition: background-color var(--pt-duration) var(--pt-ease);
+}
+
+.pt-icon-btn:hover {
+  background: var(--pt-surface-2);
+}
+
+.pt-icon {
+  color: var(--pt-accent);
+}
+
+.btn.pt-user-btn {
+  --bs-btn-padding-x: 0.375rem;
+  --bs-btn-font-weight: 500;
+  --bs-btn-color: var(--pt-text);
+  --bs-btn-border-color: var(--pt-border);
+  --bs-btn-hover-color: var(--pt-text);
+  --bs-btn-hover-bg: var(--pt-surface-2);
+  --bs-btn-hover-border-color: var(--pt-muted);
+  --bs-btn-active-color: var(--pt-text);
+  --bs-btn-active-bg: var(--pt-surface-2);
+  --bs-btn-active-border-color: var(--pt-muted);
+  padding-right: 0.875rem;
+}
+
+/* YouTube-style search: one pill with the input on the left and an icon button attached on the right */
+.pt-search {
+  display: flex;
+  flex: 1 1 auto;
+  width: 100%;
+  max-width: 600px;
+  height: var(--pt-control-h);
+  border: 1px solid var(--pt-border);
+  border-radius: var(--pt-radius-pill);
+  background: var(--pt-surface);
+  overflow: hidden;
+  transition:
+    border-color var(--pt-duration) var(--pt-ease),
+    box-shadow var(--pt-duration) var(--pt-ease);
+}
+
+.pt-search:focus-within {
+  border-color: var(--pt-primary);
+  box-shadow: var(--pt-focus-ring);
+}
+
+.pt-search .pt-search-input,
+.pt-search .pt-search-input:focus,
+.pt-search .pt-search-input:focus-visible {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 100%;
+  padding: 0 var(--pt-control-px);
+  border: 0;
+  border-radius: var(--pt-radius-pill) 0 0 var(--pt-radius-pill);
+  background: transparent;
+  font-size: var(--pt-control-font);
+  box-shadow: none;
+  outline: none;
+}
+
+.pt-search-btn {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 3.75rem;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  border-left: 1px solid var(--pt-border);
+  border-radius: 0 var(--pt-radius-pill) var(--pt-radius-pill) 0;
+  background: var(--pt-surface-2);
+  color: var(--pt-text);
+  transition:
+    background-color var(--pt-duration) var(--pt-ease),
+    color var(--pt-duration) var(--pt-ease);
+}
+
+.pt-search-btn:hover {
+  background: rgba(var(--pt-primary-rgb), 0.14);
+  color: var(--pt-primary);
+}
+
+.pt-search-btn:focus-visible {
+  outline: 2px solid var(--pt-primary);
+  outline-offset: -4px;
+}
+
+@media (min-width: 992px) {
+  .pt-search {
+    max-width: 640px;
+  }
+}
+
+/* ---------- Layout helpers for the button system ---------- */
+
+/* A row of same-height controls on one centre line, wrapping nicely on small screens */
+.pt-action-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Video page: channel group on the left, actions on the right (stacked on phones) */
+.pt-video-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+}
+
+/* Small ghost actions under a comment or reply */
+.pt-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem;
+  margin-left: -0.5rem;
+}
+
+/* Joined "name + create" form in a page header */
+.pt-create-form {
+  max-width: 22rem;
+}
+
+.pt-rename-form {
+  width: min(18rem, 100%);
+}
+
+/* Empty-state action: its own spacing, centred */
+.pt-empty-action {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 1.25rem;
+}
+
+/* Table header on a token surface (Bootstrap's table-light stays light in dark mode) */
+.pt-thead th {
+  --bs-table-bg: var(--pt-surface-2);
+  --bs-table-color: var(--pt-text);
+  border-bottom-color: var(--pt-border);
+  font-size: var(--pt-control-font-sm);
+  font-weight: 600;
+}
+
+/* Floating panel opened from a button (Save to playlist) */
+.pt-popover {
+  border-radius: var(--pt-radius-lg);
+}
+
+/* Last reply in a thread: no separator under it */
+.last-no-border:last-child {
+  border-bottom: 0 !important;
+}
+
+/* ---------- Avatar ---------- */
+
+.pt-avatar {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  object-fit: cover;
+  background-color: var(--pt-primary);
+  color: var(--pt-on-primary);
+  font-weight: 700;
+  line-height: 1;
+  user-select: none;
+}
+
+/* ---------- Video cards and player ---------- */
+
+.pt-card {
+  border-radius: var(--pt-radius-lg);
+  overflow: hidden;
+  transition:
+    transform var(--pt-duration) var(--pt-ease),
+    box-shadow var(--pt-duration) var(--pt-ease);
+}
+
+.pt-card:hover,
+.pt-card:focus-within {
+  transform: translateY(-4px);
+  box-shadow: var(--pt-shadow-lg) !important;
+}
+
+.pt-thumb {
+  background-color: var(--pt-surface-2);
+}
+
+.pt-thumb-placeholder {
+  color: var(--pt-accent);
+}
+
+/* ---------- Video player (always dark, whatever the page theme) ---------- */
+
+.pt-player {
+  --pt-player-accent: #8b7ff0;
+  --pt-player-brand: #5b4bdb;
+  --pt-player-play: #ff7a59;
+  --pt-player-text: #ffffff;
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: var(--pt-radius-lg);
+  overflow: hidden;
+  background: #000;
+  color: var(--pt-player-text);
+}
+
+.pt-player:focus-visible {
+  outline: 3px solid var(--pt-player-accent);
+  outline-offset: 2px;
+}
+
+.pt-player > video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #000;
+}
+
+.pt-player:fullscreen {
+  aspect-ratio: auto;
+  width: 100%;
+  height: 100%;
+  border-radius: 0;
+}
+
+.pt-player.pt-player-idle {
+  cursor: none;
+}
+
+/* Big round play button before the first play: indigo disc with the coral triangle of the logo */
+.pt-player-bigplay {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 4.5rem;
+  height: 4.5rem;
+  padding: 0 0 0 0.25rem;
+  border: 0;
+  border-radius: 50%;
+  background: var(--pt-player-brand);
+  color: var(--pt-player-play);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  transform: translate(-50%, -50%);
+  transition: transform var(--pt-duration) var(--pt-ease);
+}
+
+.pt-player-bigplay:hover {
+  transform: translate(-50%, -50%) scale(1.06);
+}
+
+.pt-player-bigplay svg {
+  width: 2rem;
+  height: 2rem;
+}
+
+.pt-player-controls {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  padding: 2.5rem 0.75rem 0.5rem;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.78));
+  transition: opacity 200ms var(--pt-ease);
+}
+
+.pt-player-controls.is-hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.pt-player-row {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.pt-player-btn {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--pt-control-h);
+  height: var(--pt-control-h);
+  padding: 0;
+  border: 0;
+  border-radius: var(--pt-radius-pill);
+  background: transparent;
+  color: var(--pt-player-text);
+  font-size: var(--pt-control-font-sm);
+  font-weight: 700;
+  transition: background-color var(--pt-duration) var(--pt-ease);
+}
+
+.pt-player-btn:hover,
+.pt-player-btn[aria-expanded='true'] {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.pt-player-btn:focus-visible,
+.pt-player-menu-item:focus-visible,
+.pt-player-bigplay:focus-visible {
+  outline: 2px solid var(--pt-player-text);
+  outline-offset: 1px;
+  box-shadow: 0 0 0 5px var(--pt-player-brand);
+}
+
+.pt-player-btn svg {
+  width: 1.375rem;
+  height: 1.375rem;
+}
+
+.pt-player-speed {
+  padding: 0 0.625rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.pt-player-time {
+  margin: 0 0.5rem;
+  font-size: var(--pt-control-font-sm);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.pt-player-volume {
+  display: flex;
+  align-items: center;
+}
+
+.pt-range-volume {
+  width: 5rem;
+}
+
+@media (max-width: 575.98px) {
+  .pt-range-volume {
+    display: none;
+  }
+
+  .pt-player-time {
+    margin: 0 0.25rem;
+  }
+}
+
+/* Speed menu */
+.pt-player-menu {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 0.5rem);
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  min-width: 7.5rem;
+  padding: 0.375rem;
+  border-radius: var(--pt-radius);
+  background: rgba(28, 27, 46, 0.96);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+
+.pt-player-menu-item {
+  height: 2.25rem;
+  padding: 0 0.875rem;
+  border: 0;
+  border-radius: var(--pt-radius-pill);
+  background: transparent;
+  color: var(--pt-player-text);
+  font-size: var(--pt-control-font-sm);
+  font-weight: 600;
+  text-align: left;
+}
+
+.pt-player-menu-item:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.pt-player-menu-item.is-active {
+  background: rgba(139, 127, 240, 0.32);
+  color: #e4e0ff;
+}
+
+/* Range sliders (seek and volume): rounded track, buffered part, indigo played part, round thumb */
+.pt-range {
+  --pt-range-track: linear-gradient(
+    to right,
+    var(--pt-player-accent) 0 var(--played, 0%),
+    rgba(255, 255, 255, 0.5) var(--played, 0%) var(--buffered, 0%),
+    rgba(255, 255, 255, 0.25) var(--buffered, 0%) 100%
+  );
+  width: 100%;
+  height: 1.25rem;
+  margin: 0;
+  background: transparent;
+  cursor: pointer;
+  appearance: none;
+}
+
+.pt-range::-webkit-slider-runnable-track {
+  height: 0.3125rem;
+  border-radius: var(--pt-radius-pill);
+  background: var(--pt-range-track);
+}
+
+.pt-range::-moz-range-track {
+  height: 0.3125rem;
+  border-radius: var(--pt-radius-pill);
+  background: var(--pt-range-track);
+}
+
+.pt-range::-webkit-slider-thumb {
+  width: 0.875rem;
+  height: 0.875rem;
+  margin-top: -0.28125rem;
+  border: 0;
+  border-radius: 50%;
+  background: var(--pt-player-text);
+  box-shadow: 0 0 0 3px var(--pt-player-accent);
+  appearance: none;
+}
+
+.pt-range::-moz-range-thumb {
+  width: 0.875rem;
+  height: 0.875rem;
+  border: 0;
+  border-radius: 50%;
+  background: var(--pt-player-text);
+  box-shadow: 0 0 0 3px var(--pt-player-accent);
+}
+
+.pt-range:focus-visible {
+  outline: 2px solid var(--pt-player-text);
+  outline-offset: 2px;
+  border-radius: var(--pt-radius-pill);
+}
+
+@media (max-width: 575.98px) {
+  .pt-player {
+    margin-left: calc(-0.5 * var(--bs-gutter-x, 1.5rem));
+    margin-right: calc(-0.5 * var(--bs-gutter-x, 1.5rem));
+    width: calc(100% + var(--bs-gutter-x, 1.5rem));
+    border-radius: 0;
+  }
+}
+
+img,
+video {
+  max-width: 100%;
+}
+
+/* ---------- Skeletons ---------- */
+
+.pt-skeleton {
+  display: block;
+  border-radius: var(--pt-radius-sm);
+  background: linear-gradient(90deg, var(--pt-skeleton) 0%, var(--pt-skeleton-shine) 50%, var(--pt-skeleton) 100%);
+  background-size: 200% 100%;
+  animation: pt-shimmer 1.4s ease-in-out infinite;
+}
+
+.pt-skeleton-line {
+  height: 0.8rem;
+  margin-bottom: 0.5rem;
+}
+
+.pt-skeleton-circle {
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+@keyframes pt-shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+
+/* ---------- Empty states ---------- */
+
+.pt-empty {
+  max-width: 28rem;
+  margin: 0 auto;
+  padding: 3rem 1rem;
+  text-align: center;
+}
+
+.pt-empty svg {
+  width: 9rem;
+  height: auto;
+  margin-bottom: 1rem;
+}
+
+.pt-ill-primary {
+  fill: var(--pt-primary);
+}
+
+.pt-ill-accent {
+  fill: var(--pt-accent);
+}
+
+.pt-ill-soft {
+  fill: var(--pt-surface-2);
+}
+
+.pt-ill-line {
+  stroke: var(--pt-border);
+}
+
+/* ---------- Toasts ---------- */
+
+.pt-toast-container {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  left: auto;
+  z-index: 1090;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-width: calc(100vw - 2rem);
+}
+
+.pt-toast {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  border-left: 4px solid var(--pt-primary);
+  box-shadow: var(--pt-shadow-lg);
+  animation: pt-slide-in var(--pt-duration) var(--pt-ease);
+}
+
+.pt-toast-success {
+  border-left-color: #2fb37a;
+}
+
+.pt-toast-error {
+  border-left-color: #e5484d;
+}
+
+@keyframes pt-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ---------- Page transitions ---------- */
+
+.pt-page {
+  animation: pt-page-in 220ms var(--pt-ease);
+}
+
+@keyframes pt-page-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ---------- Reduced motion: no animations or transforms at all ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .pt-card:hover,
+  .pt-card:focus-within {
+    transform: none;
+  }
+
+  .pt-skeleton {
+    animation: none;
+  }
+}

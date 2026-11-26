@@ -69,6 +69,29 @@ describe('PlaylistsPage', () => {
     expect(refresh).toHaveBeenCalledTimes(1);
   });
 
+  it('shows an illustrated empty state and a joined create form when there are no playlists', () => {
+    mockedUsePlaylists.mockReturnValue({
+      playlists: [],
+      loading: false,
+      error: null,
+      createPlaylist: jest.fn(),
+      renamePlaylist: jest.fn(),
+      deletePlaylist: jest.fn(),
+      refresh: jest.fn(),
+    });
+
+    render(
+      <MemoryRouter>
+        <PlaylistsPage />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByText('You have no playlists yet.')).toBeInTheDocument();
+    const form = screen.getByRole('form', { name: 'Create playlist' });
+    expect(form).toHaveClass('pt-input-pill');
+    expect(screen.getByRole('button', { name: 'New list' }).querySelector('svg[data-icon="plus"]')).toBeInTheDocument();
+  });
+
   it('renders Watch later without rename/delete, and supports creating, renaming, and deleting custom lists', async () => {
     const createPlaylist = jest.fn().mockResolvedValue(basePlaylists[1]);
     const renamePlaylist = jest.fn().mockResolvedValue({ ...basePlaylists[1], name: 'Jazz' });

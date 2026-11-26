@@ -1,7 +1,12 @@
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import type React from 'react';
+import { act, fireEvent, render as rtlRender, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import Header from '../Header';
 import { AuthContext, AuthContextType } from '../../context/AuthContext';
+import { ThemeProvider } from '../../context/ThemeProvider';
+
+// The page needs the app-level provider; wrap every render in it.
+const render = (ui: React.ReactElement) => rtlRender(ui, { wrapper: ThemeProvider });
 
 describe('Header', () => {
   const createMockAuthContext = (overrides: Partial<AuthContextType> = {}): AuthContextType => ({
@@ -163,3 +168,135 @@ const SearchLocation = () => {
   const location = useLocation();
   return <div data-testid="location">{location.pathname + location.search}</div>;
 };
+
+describe('Header (responsive menu, theme and logo)', () => {
+  const authContext: AuthContextType = {
+    user: { id: 1, username: 'alice', email: 'alice@example.com', avatarUrl: null },
+    token: 't',
+    isAuthenticated: true,
+    isLoading: false,
+    login: jest.fn(),
+    register: jest.fn(),
+    loginWithToken: jest.fn(),
+    logout: jest.fn(),
+  };
+
+  const renderHeader = (path = '/') =>
+    render(
+      <AuthContext.Provider value={authContext}>
+        <MemoryRouter initialEntries={[path]}>
+          <Header />
+          <Routes>
+            <Route path="*" element={<SearchLocation />} />
+          </Routes>
+        </MemoryRouter>
+      </AuthContext.Provider>
+    );
+
+  beforeEach(() => {
+    window.localStorage.clear();
+  });
+
+  it('collapses the search and actions behind the hamburger button', () => {
+    renderHeader();
+
+    const toggler = screen.getByRole('button', { name: 'Toggle navigation' });
+    const menu = document.getElementById('main-navigation');
+    expect(toggler).toHaveAttribute('aria-controls', 'main-navigation');
+    expect(toggler).toHaveAttribute('aria-expanded', 'false');
+    expect(menu).toHaveClass('collapse');
+    expect(menu).not.toHaveClass('show');
+
+    fireEvent.click(toggler);
+    expect(toggler).toHaveAttribute('aria-expanded', 'true');
+    expect(menu).toHaveClass('show');
+
+    fireEvent.click(toggler);
+    expect(menu).not.toHaveClass('show');
+  });
+
+  it('closes the mobile menu after navigating', () => {
+    renderHeader();
+    fireEvent.click(screen.getByRole('button', { name: 'Toggle navigation' }));
+    fireEvent.change(screen.getByPlaceholderText('Search videos'), { target: { value: 'cats' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Search' }));
+
+    expect(screen.getByTestId('location')).toHaveTextContent('/search?q=cats');
+    expect(document.getElementById('main-navigation')).not.toHaveClass('show');
+  });
+
+  it('shows the user initial when there is no avatar picture', () => {
+    renderHeader();
+    expect(screen.getByRole('img', { name: 'alice' })).toHaveTextContent('A');
+  });
+
+  it('switches the logo with the theme toggle', () => {
+    renderHeader();
+    expect(screen.getByRole('img', { name: 'ProTube logo' })).toHaveAttribute('src', '/logo.svg');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Switch to dark theme' }));
+    expect(screen.getByRole('img', { name: 'ProTube logo' })).toHaveAttribute('src', '/logo-dark.svg');
+    expect(document.documentElement).toHaveAttribute('data-bs-theme', 'dark');
+  });
+
+  it('closes the user menu with Escape and with a click outside', () => {
+    renderHeader();
+    const userMenu = screen.getByRole('button', { name: 'User menu' });
+
+    fireEvent.click(userMenu);
+    expect(screen.getByRole('link', { name: 'History' })).toBeInTheDocument();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.queryByRole('link', { name: 'History' })).not.toBeInTheDocument();
+
+    fireEvent.click(userMenu);
+    fireEvent.keyDown(document, { key: 'Enter' });
+    expect(screen.getByRole('link', { name: 'History' })).toBeInTheDocument();
+    fireEvent.mouseDown(document.body);
+    expect(screen.queryByRole('link', { name: 'History' })).not.toBeInTheDocument();
+  });
+});
+
+describe('Header (standard controls)', () => {
+  const renderLoggedOut = () =>
+    render(
+      <AuthContext.Provider
+        value={{
+          user: null,
+          token: null,
+          isAuthenticated: false,
+          isLoading: false,
+          login: jest.fn(),
+          register: jest.fn(),
+          loginWithToken: jest.fn(),
+          logout: jest.fn(),
+        }}
+      >
+        <MemoryRouter>
+          <Header />
+        </MemoryRouter>
+      </AuthContext.Provider>
+    );
+
+  it('uses an icon search button that keeps the accessible name "Search"', () => {
+    renderLoggedOut();
+    const search = screen.getByRole('search');
+    const button = screen.getByRole('button', { name: 'Search' });
+
+    expect(search).toHaveClass('pt-search');
+    expect(search).toContainElement(screen.getByRole('searchbox', { name: 'Search videos' }));
+    expect(button).toHaveClass('pt-search-btn');
+    expect(button).toHaveTextContent('');
+    expect(button.querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
+  });
+
+  it('gives every text button in the bar the same shared class and no Bootstrap size class', () => {
+    renderLoggedOut();
+    for (const name of ['Log In', 'Register']) {
+      const link = screen.getByRole('link', { name });
+      expect(link).toHaveClass('pt-header-btn');
+      expect(link).not.toHaveClass('btn-sm');
+    }
+    expect(screen.getByRole('button', { name: 'Toggle navigation' })).toHaveClass('pt-icon-btn');
+    expect(screen.getByRole('button', { name: /switch to/i })).toHaveClass('pt-icon-btn');
+  });
+});

@@ -5,6 +5,9 @@ import VideoCard from './VideoCard';
 import NotFoundPage from './NotFoundPage';
 import SubscribeButton from './SubscribeButton';
 import { formatSubscribers, resolveAvatarUrl } from '../utils/format';
+import Skeleton from './Skeleton';
+import Avatar from './Avatar';
+import EmptyState from './EmptyState';
 
 export const PublicProfilePage: React.FC = () => {
   const { username } = useParams<{ username: string }>();
@@ -23,13 +26,7 @@ export const PublicProfilePage: React.FC = () => {
   } = usePublicProfile(username);
 
   if (loading) {
-    return (
-      <div className="d-flex justify-content-center py-5" role="status" aria-label="Loading profile">
-        <div className="spinner-border text-primary" role="status">
-          <span className="visually-hidden">Loading profile...</span>
-        </div>
-      </div>
-    );
+    return <Skeleton label="Loading profile" variant="cards" />;
   }
 
   if (error) {
@@ -51,7 +48,6 @@ export const PublicProfilePage: React.FC = () => {
   }
 
   const avatar = resolveAvatarUrl(profile.avatarUrl);
-  const initial = profile.username.charAt(0).toUpperCase();
 
   return (
     <div className="public-profile-page py-3">
@@ -59,26 +55,12 @@ export const PublicProfilePage: React.FC = () => {
       <header className="card shadow-sm mb-4" aria-label="User profile">
         <div className="card-body d-flex flex-column flex-sm-row align-items-center gap-4 p-4">
           <div>
-            {avatar ? (
-              <img
-                src={avatar}
-                alt={profile.username}
-                className="rounded-circle border"
-                style={{ width: '96px', height: '96px', objectFit: 'cover' }}
-              />
-            ) : (
-              <span
-                className="rounded-circle bg-primary text-white d-inline-flex justify-content-center align-items-center fs-1 fw-bold"
-                style={{ width: '96px', height: '96px' }}
-              >
-                {initial}
-              </span>
-            )}
+            <Avatar src={avatar} name={profile.username} size={96} className="border fs-1" />
           </div>
 
           <div className="text-center text-sm-start flex-grow-1">
             <h1 className="h3 mb-1">{profile.displayName || profile.username}</h1>
-            <div className="text-secondary mb-2">
+            <div className="text-body-secondary mb-2">
               <span>@{profile.username}</span> · <span>{formatSubscribers(profile.subscriberCount)}</span>
             </div>
             {profile.description ? (
@@ -86,7 +68,7 @@ export const PublicProfilePage: React.FC = () => {
                 {profile.description}
               </p>
             ) : (
-              <p className="text-secondary small fst-italic mb-0">No description provided.</p>
+              <p className="text-body-secondary small fst-italic mb-0">No description provided.</p>
             )}
           </div>
 
@@ -103,13 +85,11 @@ export const PublicProfilePage: React.FC = () => {
       {/* Videos Section */}
       <section aria-label="User videos">
         <h2 className="h4 mb-3">
-          Videos <span className="text-secondary fs-6">({totalVideos})</span>
+          Videos <span className="text-body-secondary fs-6">({totalVideos})</span>
         </h2>
 
         {videos.length === 0 ? (
-          <div className="text-center py-5 text-secondary border rounded bg-light" role="status">
-            <p className="mb-0">No videos uploaded yet.</p>
-          </div>
+          <EmptyState message="No videos uploaded yet." illustration="videos" />
         ) : (
           <div className="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 g-4">
             {videos.map((video) => (
@@ -128,12 +108,7 @@ export const PublicProfilePage: React.FC = () => {
 
         {hasMore && (
           <div className="text-center mt-4">
-            <button
-              type="button"
-              className="btn btn-outline-primary"
-              onClick={() => void loadMore()}
-              disabled={loadingMore}
-            >
+            <button type="button" className="btn btn-soft" onClick={() => void loadMore()} disabled={loadingMore}>
               {loadingMore ? 'Loading...' : 'Load more'}
             </button>
           </div>

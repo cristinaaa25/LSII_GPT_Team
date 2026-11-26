@@ -64,7 +64,7 @@ describe('SubscribeButton', () => {
 
   it('renders the small variant', () => {
     renderButton('bob', { size: 'sm' });
-    expect(screen.getByRole('button', { name: 'Subscribe' })).toHaveClass('btn-sm', 'btn-danger');
+    expect(screen.getByRole('button', { name: 'Subscribe' })).toHaveClass('btn-sm', 'btn-primary');
   });
 
   it('subscribes and passes the response to onChange', async () => {
@@ -90,7 +90,8 @@ describe('SubscribeButton', () => {
 
     const button = screen.getByRole('button', { name: 'Subscribed' });
     expect(button).toHaveAttribute('aria-pressed', 'true');
-    expect(button).toHaveClass('btn-outline-secondary');
+    expect(button).toHaveClass('btn-soft');
+    expect(button.querySelector('svg[data-icon="check"]')).toBeInTheDocument();
     await act(async () => {
       fireEvent.click(button);
     });

@@ -23,15 +23,16 @@ test.describe('Watch History', () => {
     const watchedTitle = await firstCard.getAttribute('aria-label');
     expect(watchedTitle).toBeTruthy();
 
+    // Listen for the view BEFORE opening the video: autoplay may register it as soon as the page loads
+    const viewRegistered = page.waitForResponse(
+      (res) => res.url().includes('/views') && res.request().method() === 'POST' && res.status() === 200
+    );
     await firstCard.getByRole('link').first().click();
     await expect(page).toHaveURL(/\/videos\/\d+/);
     const videoEl = page.locator('video');
     await expect(videoEl).toBeVisible();
 
-    // Trigger playback so registerView posts POST /api/videos/{id}/views with auth token
-    const viewRegistered = page.waitForResponse(
-      (res) => res.url().includes('/views') && res.request().method() === 'POST' && res.status() === 200
-    );
+    // If autoplay was blocked, a play event registers the view (only the first play per page load counts)
     await videoEl.evaluate((el: HTMLVideoElement) => el.dispatchEvent(new Event('play')));
     await viewRegistered;
 

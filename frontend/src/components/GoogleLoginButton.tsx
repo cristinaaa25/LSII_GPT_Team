@@ -15,7 +15,7 @@ export const GoogleLoginButton: React.FC = () => {
         <span className="px-2 small">or</span>
         <hr className="flex-grow-1" />
       </div>
-      <a href={href} className="btn btn-outline-secondary w-100 py-2 fw-semibold">
+      <a href={href} className="btn btn-soft btn-lg w-100">
         Continue with Google
       </a>
     </>

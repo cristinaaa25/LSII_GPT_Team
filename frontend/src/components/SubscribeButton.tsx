@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import { userService } from '../services/userService';
 import { SubscriptionStatus } from '../types/user';
+import Icon from './Icon';
 
 interface Props {
   /** Username of the channel. */
@@ -32,7 +33,7 @@ export const SubscribeButton: React.FC<Props> = ({ channel, subscribed, onChange
 
   if (!currentUser) {
     return (
-      <Link to="/login" state={{ from: location }} className={`btn btn-danger${sizeClass}`}>
+      <Link to="/login" state={{ from: location }} className={`btn btn-primary${sizeClass}`}>
         Subscribe
       </Link>
     );
@@ -59,11 +60,12 @@ export const SubscribeButton: React.FC<Props> = ({ channel, subscribed, onChange
     <div className="d-inline-flex flex-column align-items-center">
       <button
         type="button"
-        className={`btn${sizeClass} ${subscribed ? 'btn-outline-secondary' : 'btn-danger'}`}
+        className={`btn${sizeClass} ${subscribed ? 'btn-soft' : 'btn-primary'}`}
         aria-pressed={subscribed}
         onClick={() => void handleClick()}
         disabled={saving}
       >
+        {subscribed && !saving && <Icon name="check" />}
         {saving ? 'Saving...' : subscribed ? 'Subscribed' : 'Subscribe'}
       </button>
       {error && (

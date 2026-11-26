@@ -102,7 +102,7 @@ export const LoginPage: React.FC = () => {
                   />
                 </div>
 
-                <button type="submit" className="btn btn-primary w-100 py-2 fw-semibold" disabled={isLoading}>
+                <button type="submit" className="btn btn-primary btn-lg w-100" disabled={isLoading}>
                   {isLoading ? 'Logging in...' : 'Log In'}
                 </button>
               </form>
