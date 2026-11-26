@@ -16,3 +16,11 @@ jest.mock('./src/utils/Env', () => ({
 }));
 
 fetchMock.enableMocks();
+
+beforeEach(() => {
+  try {
+    sessionStorage.clear();
+  } catch {
+    // ignore
+  }
+});

@@ -120,9 +120,9 @@ class HistoryIntegrationTest {
     void clearingHistoryKeepsViewCountsAndAnalyticsAndOtherUsersIntact() throws Exception {
         Video video = saveVideo("Analytics Video", author);
 
-        // Register views through the HTTP endpoint so video.viewCount and video_views both reflect real playback
-        mockMvc.perform(post("/api/videos/" + video.getId() + "/views").header("Authorization", bearer(viewerToken)))
-                .andExpect(status().isOk());
+        // First view from viewer in the past (outside dedup window)
+        saveView(video, viewer, "2026-11-20T10:00:00Z");
+        // Register additional views through the HTTP endpoint so video.viewCount and video_views both reflect real playback
         mockMvc.perform(post("/api/videos/" + video.getId() + "/views").header("Authorization", bearer(viewerToken)))
                 .andExpect(status().isOk());
         mockMvc.perform(post("/api/videos/" + video.getId() + "/views").header("Authorization", bearer(otherToken)))
