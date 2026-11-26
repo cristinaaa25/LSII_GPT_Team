@@ -3,6 +3,9 @@ import { Link } from 'react-router-dom';
 import { useHistory } from '../hooks/useHistory';
 import VideoCard from './VideoCard';
 import { formatTimeAgo } from '../utils/format';
+import Skeleton from './Skeleton';
+import EmptyState from './EmptyState';
+import Icon from './Icon';
 
 /** Protected page: distinct videos watched by the current user, most recent first, with clear-history confirmation. */
 export const HistoryPage: React.FC = () => {
@@ -30,13 +33,7 @@ export const HistoryPage: React.FC = () => {
   };
 
   if (loading) {
-    return (
-      <div className="d-flex justify-content-center py-5" role="status" aria-label="Loading history">
-        <div className="spinner-border text-primary" role="status">
-          <span className="visually-hidden">Loading history...</span>
-        </div>
-      </div>
-    );
+    return <Skeleton label="Loading history" variant="cards" />;
   }
 
   if (error) {
@@ -45,6 +42,7 @@ export const HistoryPage: React.FC = () => {
         <h2 className="h4 alert-heading">Error Loading History</h2>
         <p className="mb-3">{error}</p>
         <button type="button" className="btn btn-primary" onClick={() => void refresh()}>
+          <Icon name="refresh" />
           Try again
         </button>
       </div>
@@ -56,23 +54,27 @@ export const HistoryPage: React.FC = () => {
       <div className="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
         <div>
           <h1 className="h3 mb-0">
-            Watch History {videos.length > 0 && <span className="text-secondary fs-5">({totalVideos})</span>}
+            Watch History {videos.length > 0 && <span className="text-body-secondary fs-5">({totalVideos})</span>}
           </h1>
         </div>
         {videos.length > 0 && (
-          <button type="button" className="btn btn-outline-danger btn-sm" onClick={() => setShowConfirmModal(true)}>
+          <button type="button" className="btn btn-soft-danger" onClick={() => setShowConfirmModal(true)}>
+            <Icon name="trash" />
             Clear history
           </button>
         )}
       </div>
 
       {videos.length === 0 ? (
-        <div className="text-center py-5 text-secondary border rounded bg-light" role="status">
-          <p className="mb-3">You have not watched any videos yet.</p>
-          <Link to="/" className="btn btn-primary">
-            Browse videos
-          </Link>
-        </div>
+        <EmptyState
+          message="You have not watched any videos yet."
+          illustration="history"
+          action={
+            <Link to="/" className="btn btn-primary">
+              Browse videos
+            </Link>
+          }
+        />
       ) : (
         <section aria-label="Watched videos">
           <div className="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 g-4">
@@ -95,12 +97,7 @@ export const HistoryPage: React.FC = () => {
 
           {hasMore && (
             <div className="text-center mt-4">
-              <button
-                type="button"
-                className="btn btn-outline-primary"
-                onClick={() => void loadMore()}
-                disabled={loadingMore}
-              >
+              <button type="button" className="btn btn-soft" onClick={() => void loadMore()} disabled={loadingMore}>
                 {loadingMore ? 'Loading...' : 'Load more'}
               </button>
             </div>
@@ -144,7 +141,7 @@ export const HistoryPage: React.FC = () => {
                 <div className="modal-footer">
                   <button
                     type="button"
-                    className="btn btn-secondary"
+                    className="btn btn-soft"
                     disabled={clearing}
                     onClick={() => setShowConfirmModal(false)}
                   >

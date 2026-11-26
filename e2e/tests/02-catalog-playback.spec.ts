@@ -22,7 +22,11 @@ test.describe('Video Catalog & Playback (US-04, US-05)', () => {
     // Verify video player element
     const videoElement = page.locator('video');
     await expect(videoElement).toBeVisible();
-    await expect(videoElement).toHaveAttribute('controls', '');
+    // Themed player: custom controls instead of the native ones
+    const player = page.getByRole('region', { name: 'Video player' });
+    await expect(videoElement).not.toHaveAttribute('controls', /.*/);
+    await expect(player.getByRole('button', { name: /^(Play|Pause)$/ })).toBeVisible();
+    await expect(player.getByRole('slider', { name: 'Seek' })).toBeVisible();
 
     // Verify detail headers
     const mainHeading = page.getByRole('heading', { level: 1 });

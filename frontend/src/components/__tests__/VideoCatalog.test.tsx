@@ -66,7 +66,11 @@ describe('VideoCatalog', () => {
 
     expect(await screen.findByRole('heading', { name: 'Video 1' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Video 2' })).toBeInTheDocument();
-    expect(screen.getByRole('img', { name: 'Video 1' })).toHaveAttribute('src', 'development/1.webp');
+    // The thumbnail is decorative (the title link next to it names the video)
+    expect(screen.getByRole('article', { name: 'Video 1' }).querySelector('img')).toHaveAttribute(
+      'src',
+      'development/1.webp'
+    );
     expect(screen.getByText('Author 1')).toBeInTheDocument();
     expect(screen.getAllByLabelText('Duration')[0]).toHaveTextContent('1:05');
     expect(screen.queryByRole('button', { name: 'Load more' })).not.toBeInTheDocument();

@@ -1,8 +1,9 @@
-import React, { useContext, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import { extractErrorMessage, playlistService } from '../services/playlistService';
 import type { PlaylistSummary } from '../types/playlist';
+import Icon from './Icon';
 
 interface Props {
   videoId: number;
@@ -23,13 +24,19 @@ export const SaveToPlaylistDropdown: React.FC<Props> = ({ videoId }) => {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [togglingIds, setTogglingIds] = useState<Set<number>>(new Set());
+  // True once the playlists for this video were requested (success or error), so opening does not refetch
+  const [fetched, setFetched] = useState(false);
+  // Ignores a late answer for a previous video
+  const videoIdRef = useRef(videoId);
 
   const [showNewForm, setShowNewForm] = useState(false);
   const [newName, setNewName] = useState('');
   const [creating, setCreating] = useState(false);
 
   useEffect(() => {
+    videoIdRef.current = videoId;
     setOpen(false);
+    setFetched(false);
     setPlaylists([]);
     setLoadError(null);
     setActionError(null);
@@ -57,32 +64,45 @@ export const SaveToPlaylistDropdown: React.FC<Props> = ({ videoId }) => {
     };
   }, [open]);
 
+  const fetchPlaylists = useCallback(async () => {
+    const requestedFor = videoId;
+    setLoading(true);
+    setLoadError(null);
+    setActionError(null);
+    try {
+      const data = await playlistService.getMyPlaylists(requestedFor);
+      if (videoIdRef.current === requestedFor) setPlaylists(Array.isArray(data) ? data : []);
+    } catch (err) {
+      if (videoIdRef.current === requestedFor) setLoadError(extractErrorMessage(err, 'Failed to load playlists'));
+    } finally {
+      if (videoIdRef.current === requestedFor) {
+        setLoading(false);
+        setFetched(true);
+      }
+    }
+  }, [videoId]);
+
+  // Logged-in users: load once per video so the button shows "Saved" straight away
+  const isLoggedIn = currentUser !== null;
+  useEffect(() => {
+    if (isLoggedIn && !fetched && !loading) void fetchPlaylists();
+  }, [isLoggedIn, fetched, loading, fetchPlaylists]);
+
+  const saved = playlists.some((playlist) => playlist.containsVideo);
+
   if (!currentUser) {
     return (
-      <Link to="/login" state={{ from: location }} className="btn btn-outline-secondary btn-sm">
+      <Link to="/login" state={{ from: location }} className="btn btn-soft">
+        <Icon name="bookmark" />
         Save
       </Link>
     );
   }
 
-  const fetchPlaylists = async () => {
-    setLoading(true);
-    setLoadError(null);
-    setActionError(null);
-    try {
-      const data = await playlistService.getMyPlaylists(videoId);
-      setPlaylists(data);
-    } catch (err) {
-      setLoadError(extractErrorMessage(err, 'Failed to load playlists'));
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleToggleOpen = () => {
     const nextOpen = !open;
     setOpen(nextOpen);
-    if (nextOpen) {
+    if (nextOpen && !fetched && !loading) {
       void fetchPlaylists();
     }
   };
@@ -133,18 +153,20 @@ export const SaveToPlaylistDropdown: React.FC<Props> = ({ videoId }) => {
     <div className="dropdown position-relative" ref={containerRef}>
       <button
         type="button"
-        className="btn btn-outline-secondary btn-sm dropdown-toggle"
+        className={`btn ${saved ? 'btn-tint' : 'btn-soft'}`}
         aria-expanded={open}
         aria-haspopup="true"
         onClick={handleToggleOpen}
+        title={saved ? 'Saved in a playlist' : 'Save to a playlist'}
       >
-        Save
+        <Icon name="bookmark" filled={saved} />
+        {saved ? 'Saved' : 'Save'}
       </button>
 
       {open && (
         <div
-          className="dropdown-menu show position-absolute end-0 mt-1 p-3 shadow"
-          style={{ minWidth: '260px', zIndex: 1050 }}
+          className="dropdown-menu show position-absolute end-0 mt-2 p-3 shadow pt-popover"
+          style={{ minWidth: '280px', zIndex: 1050 }}
           role="dialog"
           aria-label="Save video to playlist"
         >
@@ -166,7 +188,8 @@ export const SaveToPlaylistDropdown: React.FC<Props> = ({ videoId }) => {
           ) : loadError ? (
             <div className="alert alert-danger py-2 px-2 small mb-2" role="alert">
               <div>{loadError}</div>
-              <button type="button" className="btn btn-link btn-sm p-0 mt-1" onClick={() => void fetchPlaylists()}>
+              <button type="button" className="btn btn-soft-danger btn-sm mt-2" onClick={() => void fetchPlaylists()}>
+                <Icon name="refresh" />
                 Try again
               </button>
             </div>
@@ -203,8 +226,8 @@ export const SaveToPlaylistDropdown: React.FC<Props> = ({ videoId }) => {
           <hr className="my-2" />
 
           {showNewForm ? (
-            <form onSubmit={(e) => void handleCreatePlaylist(e)}>
-              <div className="mb-2">
+            <form onSubmit={(e) => void handleCreatePlaylist(e)} className="d-flex flex-column gap-2">
+              <div className="pt-input-pill pt-input-pill-sm">
                 <input
                   type="text"
                   className="form-control form-control-sm"
@@ -216,35 +239,35 @@ export const SaveToPlaylistDropdown: React.FC<Props> = ({ videoId }) => {
                   disabled={creating}
                   autoFocus
                 />
-              </div>
-              <div className="d-flex justify-content-end gap-2">
-                <button
-                  type="button"
-                  className="btn btn-outline-secondary btn-sm"
-                  disabled={creating}
-                  onClick={() => {
-                    setShowNewForm(false);
-                    setNewName('');
-                    setActionError(null);
-                  }}
-                >
-                  Cancel
-                </button>
                 <button type="submit" className="btn btn-primary btn-sm" disabled={creating}>
+                  <Icon name="plus" />
                   {creating ? 'Creating...' : 'Create'}
                 </button>
               </div>
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm align-self-end"
+                disabled={creating}
+                onClick={() => {
+                  setShowNewForm(false);
+                  setNewName('');
+                  setActionError(null);
+                }}
+              >
+                Cancel
+              </button>
             </form>
           ) : (
             <button
               type="button"
-              className="btn btn-outline-primary btn-sm w-100"
+              className="btn btn-soft btn-sm w-100"
               onClick={() => {
                 setActionError(null);
                 setShowNewForm(true);
               }}
             >
-              + New list
+              <Icon name="plus" />
+              New list
             </button>
           )}
         </div>

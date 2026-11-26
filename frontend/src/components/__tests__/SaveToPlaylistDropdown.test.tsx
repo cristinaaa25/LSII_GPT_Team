@@ -58,10 +58,74 @@ describe('SaveToPlaylistDropdown', () => {
     );
   };
 
-  it('links anonymous visitors to /login', () => {
+  it('links anonymous visitors to /login without loading playlists', () => {
     renderComponent(false);
     const saveLink = screen.getByRole('link', { name: 'Save' });
     expect(saveLink).toHaveAttribute('href', '/login');
+    expect(saveLink.querySelector('svg')).not.toHaveAttribute('data-filled');
+    expect(mockedGet).not.toHaveBeenCalled();
+  });
+
+  it('loads the saved state on mount and shows a filled bookmark when the video is in a playlist', async () => {
+    mockedGet.mockResolvedValueOnce({
+      data: [
+        {
+          id: 1,
+          name: 'Watch later',
+          watchLater: true,
+          videoCount: 1,
+          containsVideo: true,
+          createdAt: '2026-11-24T10:00:00Z',
+        },
+      ],
+    });
+    renderComponent(true);
+
+    const savedButton = await screen.findByRole('button', { name: 'Saved' });
+    expect(mockedGet).toHaveBeenCalledTimes(1);
+    expect(mockedGet.mock.calls[0][0]).toContain('/users/me/playlists');
+    expect(savedButton).toHaveClass('btn-tint');
+    expect(savedButton.querySelector('svg')).toHaveAttribute('data-filled', 'true');
+
+    // Opening the menu reuses the loaded playlists (no second request)
+    fireEvent.click(savedButton);
+    expect(await screen.findByLabelText(/Watch later/i)).toBeChecked();
+    expect(mockedGet).toHaveBeenCalledTimes(1);
+  });
+
+  it('switches back to "Save" with an outline icon after removing the video from its only playlist', async () => {
+    mockedGet.mockResolvedValueOnce({
+      data: [
+        {
+          id: 1,
+          name: 'Watch later',
+          watchLater: true,
+          videoCount: 1,
+          containsVideo: true,
+          createdAt: '2026-11-24T10:00:00Z',
+        },
+      ],
+    });
+    mockedDelete.mockResolvedValueOnce({
+      data: {
+        id: 1,
+        name: 'Watch later',
+        watchLater: true,
+        videoCount: 0,
+        containsVideo: false,
+        createdAt: '2026-11-24T10:00:00Z',
+      },
+    });
+    renderComponent(true);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Saved' }));
+    await act(async () => {
+      fireEvent.click(await screen.findByLabelText(/Watch later/i));
+    });
+
+    const saveButton = await screen.findByRole('button', { name: 'Save' });
+    expect(saveButton).toHaveClass('btn-soft');
+    expect(saveButton.querySelector('svg')).not.toHaveAttribute('data-filled');
   });
 
   it('opens dropdown with Watch later first, toggles checkboxes, and creates a new list', async () => {
@@ -151,7 +215,7 @@ describe('SaveToPlaylistDropdown', () => {
     await waitFor(() => expect(screen.getByLabelText(/Favorites/i)).not.toBeChecked());
 
     // Create a new list from inside the dropdown -> automatically adds the video
-    fireEvent.click(screen.getByRole('button', { name: '+ New list' }));
+    fireEvent.click(screen.getByRole('button', { name: 'New list' }));
     fireEvent.change(screen.getByLabelText('New playlist name'), { target: { value: 'Weekend' } });
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Create' }));

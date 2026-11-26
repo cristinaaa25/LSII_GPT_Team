@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import Icon from './Icon';
 
 interface Props {
   id: string;
@@ -64,7 +65,7 @@ const TagListEditor: React.FC<Props> = ({ id, label, values, onChange, maxItems,
           ))}
         </ul>
       )}
-      <div className="input-group">
+      <div className={`pt-input-pill ${error ? 'is-invalid' : ''}`}>
         <input
           id={id}
           type="text"
@@ -78,11 +79,12 @@ const TagListEditor: React.FC<Props> = ({ id, label, values, onChange, maxItems,
           }}
           onKeyDown={handleKeyDown}
         />
-        <button type="button" className="btn btn-outline-secondary" onClick={addDraft} disabled={!draft.trim()}>
+        <button type="button" className="btn btn-soft" onClick={addDraft} disabled={!draft.trim()}>
+          <Icon name="plus" />
           Add
         </button>
-        {error && <div className="invalid-feedback">{error}</div>}
       </div>
+      {error && <div className="invalid-feedback d-block">{error}</div>}
     </div>
   );
 };

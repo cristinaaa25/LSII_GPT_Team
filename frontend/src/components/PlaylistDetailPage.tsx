@@ -5,6 +5,9 @@ import { usePlaylistDetail } from '../hooks/usePlaylistDetail';
 import { extractErrorMessage } from '../services/playlistService';
 import { formatTimeAgo } from '../utils/format';
 import VideoCard from './VideoCard';
+import Skeleton from './Skeleton';
+import EmptyState from './EmptyState';
+import Icon from './Icon';
 
 /** Protected page showing a private playlist's videos (newest added first) and remove controls. */
 export const PlaylistDetailPage: React.FC = () => {
@@ -61,13 +64,7 @@ export const PlaylistDetailPage: React.FC = () => {
   };
 
   if (loading) {
-    return (
-      <div className="d-flex justify-content-center py-5" role="status" aria-label="Loading playlist">
-        <div className="spinner-border text-primary" role="status">
-          <span className="visually-hidden">Loading playlist...</span>
-        </div>
-      </div>
-    );
+    return <Skeleton label="Loading playlist" variant="cards" />;
   }
 
   if (forbidden) {
@@ -109,30 +106,34 @@ export const PlaylistDetailPage: React.FC = () => {
   return (
     <div className="playlist-detail-page py-3">
       <div className="mb-3">
-        <Link to="/playlists" className="text-decoration-none small">
-          &larr; Back to playlists
+        <Link to="/playlists" className="btn btn-ghost btn-sm">
+          <Icon name="arrow-left" />
+          Back to playlists
         </Link>
       </div>
 
       <div className="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
         {editing ? (
-          <form className="d-flex flex-wrap align-items-center gap-2" onSubmit={(e) => void handleRenameSubmit(e)}>
-            <input
-              type="text"
-              className="form-control form-control-sm"
-              aria-label="Playlist name"
-              maxLength={100}
-              value={editName}
-              onChange={(e) => setEditName(e.target.value)}
-              disabled={renaming}
-              autoFocus
-            />
-            <button type="submit" className="btn btn-primary btn-sm" disabled={renaming}>
-              {renaming ? 'Saving...' : 'Save'}
-            </button>
+          <form className="d-flex align-items-center gap-2" onSubmit={(e) => void handleRenameSubmit(e)}>
+            <div className="pt-input-pill pt-input-pill-sm pt-rename-form">
+              <input
+                type="text"
+                className="form-control form-control-sm"
+                aria-label="Playlist name"
+                maxLength={100}
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                disabled={renaming}
+                autoFocus
+              />
+              <button type="submit" className="btn btn-primary btn-sm" disabled={renaming}>
+                <Icon name="check" />
+                {renaming ? 'Saving...' : 'Save'}
+              </button>
+            </div>
             <button
               type="button"
-              className="btn btn-outline-secondary btn-sm"
+              className="btn btn-ghost btn-sm"
               disabled={renaming}
               onClick={() => setEditing(false)}
             >
@@ -142,13 +143,14 @@ export const PlaylistDetailPage: React.FC = () => {
         ) : (
           <div className="d-flex align-items-center gap-2">
             <h1 className="h3 mb-0">{playlist.name}</h1>
-            <span className="text-secondary fs-5">({playlist.videos.length})</span>
+            <span className="text-body-secondary fs-5">({playlist.videos.length})</span>
             {playlist.watchLater && <span className="badge bg-secondary-subtle text-secondary-emphasis">Default</span>}
           </div>
         )}
 
         {!playlist.watchLater && !editing && (
-          <button type="button" className="btn btn-outline-secondary btn-sm" onClick={handleStartRename}>
+          <button type="button" className="btn btn-soft" onClick={handleStartRename}>
+            <Icon name="pencil" />
             Rename
           </button>
         )}
@@ -161,12 +163,15 @@ export const PlaylistDetailPage: React.FC = () => {
       )}
 
       {playlist.videos.length === 0 ? (
-        <div className="text-center py-5 text-secondary border rounded bg-light" role="status">
-          <p className="mb-3">This playlist has no videos yet.</p>
-          <Link to="/" className="btn btn-primary">
-            Browse videos
-          </Link>
-        </div>
+        <EmptyState
+          message="This playlist has no videos yet."
+          illustration="playlist"
+          action={
+            <Link to="/" className="btn btn-primary">
+              Browse videos
+            </Link>
+          }
+        />
       ) : (
         <section aria-label="Playlist videos">
           <div className="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 g-4">
@@ -179,11 +184,12 @@ export const PlaylistDetailPage: React.FC = () => {
                     <span className="text-body-secondary small">{addedAgo ? `Added ${addedAgo}` : ''}</span>
                     <button
                       type="button"
-                      className="btn btn-outline-danger btn-sm"
+                      className="btn btn-ghost-danger btn-sm"
                       aria-label={`Remove ${video.title} from playlist`}
                       disabled={removingIds.has(video.id)}
                       onClick={() => void handleRemoveVideo(video.id)}
                     >
+                      <Icon name="trash" />
                       {removingIds.has(video.id) ? 'Removing...' : 'Remove'}
                     </button>
                   </div>

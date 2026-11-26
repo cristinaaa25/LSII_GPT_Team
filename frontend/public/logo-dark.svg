@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="200" height="48" viewBox="0 0 200 48" role="img" aria-labelledby="protube-logo-dark-title">
+  <title id="protube-logo-dark-title">ProTube</title>
+  <rect x="2" y="6" width="44" height="32" rx="9" fill="#8B7FF0"/>
+  <rect x="16" y="40.5" width="16" height="3" rx="1.5" fill="#8B7FF0"/>
+  <path d="M20 14.5v15a1.5 1.5 0 0 0 2.3 1.27l11.4-7.5a1.5 1.5 0 0 0 0-2.54l-11.4-7.5A1.5 1.5 0 0 0 20 14.5Z" fill="#FF8F73"/>
+  <text x="56" y="31" font-family="Inter, 'Segoe UI', system-ui, -apple-system, sans-serif" font-size="24" font-weight="700" letter-spacing="-0.5" fill="#ECEBF5">Pro<tspan fill="#8B7FF0">Tube</tspan></text>
+</svg>

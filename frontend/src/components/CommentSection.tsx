@@ -3,6 +3,10 @@ import { Link } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import { useComments } from '../hooks/useComments';
 import { formatDate } from '../utils/format';
+import Skeleton from './Skeleton';
+import EmptyState from './EmptyState';
+import Icon from './Icon';
+import Avatar from './Avatar';
 
 export interface CommentSectionProps {
   videoId: number | undefined;
@@ -173,7 +177,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ videoId, initial
           </div>
           {submitError && <div className="alert alert-danger py-2 small">{submitError}</div>}
           <div className="d-flex justify-content-end">
-            <button type="submit" className="btn btn-primary btn-sm" disabled={submitting || !newCommentText.trim()}>
+            <button type="submit" className="btn btn-primary" disabled={submitting || !newCommentText.trim()}>
               {submitting ? 'Posting...' : 'Comment'}
             </button>
           </div>
@@ -188,13 +192,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ videoId, initial
         </div>
       )}
 
-      {loading && comments.length === 0 && (
-        <div className="d-flex justify-content-center py-4" role="status" aria-label="Loading comments">
-          <div className="spinner-border spinner-border-sm text-primary" role="status">
-            <span className="visually-hidden">Loading comments...</span>
-          </div>
-        </div>
-      )}
+      {loading && comments.length === 0 && <Skeleton label="Loading comments" variant="comments" count={3} />}
 
       {error && (
         <div className="alert alert-danger py-2" role="alert">
@@ -203,9 +201,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ videoId, initial
       )}
 
       {!loading && comments.length === 0 && (
-        <div className="card p-4 text-center bg-body-tertiary border-secondary-subtle">
-          <p className="text-body-secondary mb-0">No comments yet. Be the first to comment!</p>
-        </div>
+        <EmptyState message="No comments yet. Be the first to comment!" illustration="comments" />
       )}
 
       <div className="comments-list">
@@ -217,11 +213,10 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ videoId, initial
               className="card p-3 mb-3 border-secondary-subtle"
               aria-label={`Comment by ${comment.author}`}
             >
-              <header className="d-flex align-items-center justify-content-between mb-2">
-                <div>
-                  <span className="fw-bold me-2">{comment.author}</span>
-                  <span className="text-body-secondary small">{formatDate(comment.createdAt)}</span>
-                </div>
+              <header className="d-flex align-items-center gap-2 mb-2">
+                <Avatar name={comment.author} size={32} alt="" />
+                <span className="fw-bold">{comment.author}</span>
+                <span className="text-body-secondary small">{formatDate(comment.createdAt)}</span>
               </header>
 
               {editingId === comment.id ? (
@@ -241,7 +236,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ videoId, initial
                   <div className="d-flex justify-content-end gap-2">
                     <button
                       type="button"
-                      className="btn btn-secondary btn-sm"
+                      className="btn btn-ghost btn-sm"
                       onClick={handleCancelEdit}
                       disabled={editSubmitting}
                     >
@@ -263,21 +258,22 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ videoId, initial
               )}
 
               {editingId !== comment.id && (
-                <footer className="d-flex align-items-center gap-2 mb-2">
+                <footer className="pt-row-actions mb-1">
                   <button
                     type="button"
-                    className={`btn btn-sm ${comment.likedByMe ? 'btn-primary' : 'btn-outline-secondary'}`}
+                    className={`btn btn-sm ${comment.likedByMe ? 'btn-tint' : 'btn-ghost'}`}
                     onClick={() => handleLike(comment.id)}
                     disabled={!isAuthenticated}
                     aria-label={`Like comment by ${comment.author}`}
                   >
-                    👍 {comment.likeCount}
+                    <Icon name="thumbs-up" filled={comment.likedByMe} />
+                    <span>{comment.likeCount}</span>
                   </button>
 
                   {isAuthenticated && (
                     <button
                       type="button"
-                      className="btn btn-sm btn-outline-secondary"
+                      className="btn btn-sm btn-ghost"
                       onClick={() => {
                         setReplyingToId(replyingToId === comment.id ? null : comment.id);
                         setReplyText('');
@@ -286,6 +282,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ videoId, initial
                       }}
                       aria-label={`Reply to comment by ${comment.author}`}
                     >
+                      <Icon name="reply" />
                       Reply
                     </button>
                   )}
@@ -294,18 +291,20 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ videoId, initial
                     <>
                       <button
                         type="button"
-                        className="btn btn-sm btn-outline-secondary"
+                        className="btn btn-sm btn-ghost"
                         onClick={() => handleStartEdit(comment.id, comment.text)}
                         aria-label={`Edit comment by ${comment.author}`}
                       >
+                        <Icon name="pencil" />
                         Edit
                       </button>
                       <button
                         type="button"
-                        className="btn btn-sm btn-outline-danger"
+                        className="btn btn-sm btn-ghost-danger"
                         onClick={() => handlePromptDelete(comment.id)}
                         aria-label={`Delete comment by ${comment.author}`}
                       >
+                        <Icon name="trash" />
                         Delete
                       </button>
                     </>
@@ -335,7 +334,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ videoId, initial
                   <div className="d-flex justify-content-end gap-2">
                     <button
                       type="button"
-                      className="btn btn-secondary btn-sm"
+                      className="btn btn-ghost btn-sm"
                       onClick={() => {
                         setReplyingToId(null);
                         setReplyText('');
@@ -365,8 +364,9 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ videoId, initial
                         className="py-2 border-bottom border-light-subtle last-no-border"
                         aria-label={`Reply by ${reply.author}`}
                       >
-                        <div className="d-flex align-items-center mb-1">
-                          <span className="fw-semibold me-2 small">{reply.author}</span>
+                        <div className="d-flex align-items-center gap-2 mb-1">
+                          <Avatar name={reply.author} size={24} alt="" />
+                          <span className="fw-semibold small">{reply.author}</span>
                           <span className="text-body-secondary small">{formatDate(reply.createdAt)}</span>
                         </div>
 
@@ -391,7 +391,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ videoId, initial
                             <div className="d-flex justify-content-end gap-2">
                               <button
                                 type="button"
-                                className="btn btn-secondary btn-sm"
+                                className="btn btn-ghost btn-sm"
                                 onClick={handleCancelEdit}
                                 disabled={editSubmitting}
                               >
@@ -413,32 +413,35 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ videoId, initial
                         )}
 
                         {editingId !== reply.id && (
-                          <div className="d-flex align-items-center gap-2">
+                          <div className="pt-row-actions">
                             <button
                               type="button"
-                              className={`btn btn-sm py-0 px-2 ${reply.likedByMe ? 'btn-primary' : 'btn-outline-secondary'}`}
+                              className={`btn btn-sm ${reply.likedByMe ? 'btn-tint' : 'btn-ghost'}`}
                               onClick={() => handleLike(reply.id)}
                               disabled={!isAuthenticated}
                               aria-label={`Like reply by ${reply.author}`}
                             >
-                              👍 {reply.likeCount}
+                              <Icon name="thumbs-up" filled={reply.likedByMe} />
+                              <span>{reply.likeCount}</span>
                             </button>
                             {isReplyAuthor && (
                               <>
                                 <button
                                   type="button"
-                                  className="btn btn-sm py-0 px-2 btn-outline-secondary"
+                                  className="btn btn-sm btn-ghost"
                                   onClick={() => handleStartEdit(reply.id, reply.text)}
                                   aria-label={`Edit reply by ${reply.author}`}
                                 >
+                                  <Icon name="pencil" />
                                   Edit
                                 </button>
                                 <button
                                   type="button"
-                                  className="btn btn-sm py-0 px-2 btn-outline-danger"
+                                  className="btn btn-sm btn-ghost-danger"
                                   onClick={() => handlePromptDelete(reply.id)}
                                   aria-label={`Delete reply by ${reply.author}`}
                                 >
+                                  <Icon name="trash" />
                                   Delete
                                 </button>
                               </>
@@ -457,7 +460,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ videoId, initial
 
       {hasMore && (
         <div className="text-center mt-3">
-          <button type="button" className="btn btn-outline-primary btn-sm" onClick={loadMore} disabled={loading}>
+          <button type="button" className="btn btn-soft" onClick={loadMore} disabled={loading}>
             {loading ? 'Loading...' : 'Load more comments'}
           </button>
         </div>
@@ -475,9 +478,9 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ videoId, initial
             <div className="modal-dialog modal-dialog-centered">
               <div className="modal-content">
                 <div className="modal-header">
-                  <h5 className="modal-title" id="delete-comment-modal-title">
+                  <h2 className="modal-title h5" id="delete-comment-modal-title">
                     Delete Comment
-                  </h5>
+                  </h2>
                   <button
                     type="button"
                     className="btn-close"
@@ -497,7 +500,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ videoId, initial
                 <div className="modal-footer">
                   <button
                     type="button"
-                    className="btn btn-secondary"
+                    className="btn btn-soft"
                     disabled={deleteSubmitting}
                     onClick={handleCancelDelete}
                   >

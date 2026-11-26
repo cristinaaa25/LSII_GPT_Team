@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { videoService } from '../services/videoService';
+import Icon from './Icon';
 
 const MAX_FILE_SIZE_BYTES = 100 * 1024 * 1024; // 100MB
 
@@ -267,18 +268,21 @@ export const UploadPage: React.FC = () => {
                 </div>
               )}
 
-              <div className="d-flex align-items-center">
+              <div className="d-flex align-items-center gap-2">
                 <button type="submit" className="btn btn-primary" disabled={uploading}>
                   {uploading ? (
                     <>
-                      <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true" />
+                      <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true" />
                       Uploading...
                     </>
                   ) : (
-                    'Upload Video'
+                    <>
+                      <Icon name="upload" />
+                      Upload Video
+                    </>
                   )}
                 </button>
-                <Link to="/" className="btn btn-outline-secondary ms-2" tabIndex={uploading ? -1 : 0}>
+                <Link to="/" className="btn btn-ghost" tabIndex={uploading ? -1 : 0}>
                   Cancel
                 </Link>
               </div>

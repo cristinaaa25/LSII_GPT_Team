@@ -1,10 +1,15 @@
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import type React from 'react';
+import { act, fireEvent, render as rtlRender, screen } from '@testing-library/react';
 import axios from 'axios';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import VideoDetailPage from '../VideoDetailPage';
 import { AuthContext, AuthContextType } from '../../context/AuthContext';
 import { authService } from '../../services/authService';
 import type { VideoDetail } from '../../types/video';
+import { ToastProvider } from '../../context/ToastProvider';
+
+// The page needs the app-level provider; wrap every render in it.
+const render = (ui: React.ReactElement) => rtlRender(ui, { wrapper: ToastProvider });
 
 jest.mock('axios', () => {
   const actualAxios = jest.requireActual('axios');
@@ -129,7 +134,10 @@ describe('VideoDetailPage', () => {
 
     const videoEl = screen.getByLabelText('Amazing Nature') as HTMLVideoElement;
     expect(videoEl).toBeInTheDocument();
-    expect(videoEl).toHaveAttribute('controls');
+    // The themed player replaces the native controls once mounted
+    expect(await screen.findByRole('slider', { name: 'Seek' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Video player' })).toBeInTheDocument();
+    expect(videoEl.controls).toBe(false);
     expect(videoEl).toHaveAttribute('src', 'development/42.mp4');
     expect(videoEl).toHaveAttribute('poster', 'development/42.webp');
 
@@ -280,10 +288,10 @@ describe('VideoDetailPage', () => {
       expect(screen.getByText('#birds')).toBeInTheDocument();
       expect(screen.queryByText('#nature')).not.toBeInTheDocument();
       expect(screen.getByRole('region', { name: 'Description' })).toHaveTextContent('New text');
-      expect(screen.getByText('Changes saved.')).toBeInTheDocument();
-      expect(mockedGet.mock.calls.filter(([url]) => !String(url).includes('/comments'))).toHaveLength(1);
+      expect(screen.getByRole('status')).toHaveTextContent('Changes saved.');
+      expect(mockedGet.mock.calls.filter(([url]) => !/\/comments|\/playlists/.test(String(url)))).toHaveLength(1);
 
-      fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Close notification' }));
       expect(screen.queryByText('Changes saved.')).not.toBeInTheDocument();
     });
 
@@ -426,6 +434,8 @@ describe('VideoDetailPage', () => {
       expect(likeButton).toBeInTheDocument();
       expect(likeButton).toHaveAttribute('aria-pressed', 'true');
       expect(likeButton).toHaveTextContent('350 likes');
+      expect(likeButton).toHaveClass('btn-tint');
+      expect(likeButton.querySelector('svg[data-icon="thumbs-up"]')).toHaveAttribute('data-filled', 'true');
     });
 
     it('optimistically increments count and sets aria-pressed="true" on like', async () => {

@@ -3,6 +3,9 @@ import { Link } from 'react-router-dom';
 import { usePlaylists } from '../hooks/usePlaylists';
 import { extractErrorMessage } from '../services/playlistService';
 import type { PlaylistSummary } from '../types/playlist';
+import Skeleton from './Skeleton';
+import Icon from './Icon';
+import EmptyState from './EmptyState';
 
 /** Protected page listing the user's private playlists ("Watch later" first) with create/rename/delete. */
 export const PlaylistsPage: React.FC = () => {
@@ -79,13 +82,7 @@ export const PlaylistsPage: React.FC = () => {
   };
 
   if (loading) {
-    return (
-      <div className="d-flex justify-content-center py-5" role="status" aria-label="Loading playlists">
-        <div className="spinner-border text-primary" role="status">
-          <span className="visually-hidden">Loading playlists...</span>
-        </div>
-      </div>
-    );
+    return <Skeleton label="Loading playlists" variant="list" />;
   }
 
   if (error) {
@@ -94,6 +91,7 @@ export const PlaylistsPage: React.FC = () => {
         <h2 className="h4 alert-heading">Error Loading Playlists</h2>
         <p className="mb-3">{error}</p>
         <button type="button" className="btn btn-primary" onClick={() => void refresh()}>
+          <Icon name="refresh" />
           Try again
         </button>
       </div>
@@ -104,10 +102,14 @@ export const PlaylistsPage: React.FC = () => {
     <div className="playlists-page py-3">
       <div className="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
         <h1 className="h3 mb-0">Playlists</h1>
-        <form className="d-flex gap-2" onSubmit={(e) => void handleCreate(e)} aria-label="Create playlist">
+        <form
+          className="pt-input-pill pt-create-form"
+          onSubmit={(e) => void handleCreate(e)}
+          aria-label="Create playlist"
+        >
           <input
             type="text"
-            className="form-control form-control-sm"
+            className="form-control"
             placeholder="New playlist name"
             aria-label="New playlist name"
             maxLength={100}
@@ -115,7 +117,8 @@ export const PlaylistsPage: React.FC = () => {
             onChange={(e) => setNewName(e.target.value)}
             disabled={creating}
           />
-          <button type="submit" className="btn btn-primary btn-sm text-nowrap" disabled={creating}>
+          <button type="submit" className="btn btn-primary" disabled={creating}>
+            <Icon name="plus" />
             {creating ? 'Creating...' : 'New list'}
           </button>
         </form>
@@ -133,36 +136,48 @@ export const PlaylistsPage: React.FC = () => {
         </div>
       )}
 
+      {playlists.length === 0 && (
+        <EmptyState
+          message="You have no playlists yet."
+          description="Create one above, or save a video to Watch later from its page."
+          illustration="playlist"
+        />
+      )}
+
       <div className="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-3" role="list" aria-label="Your playlists">
         {playlists.map((playlist) => (
           <div key={playlist.id} className="col" role="listitem">
             <div className="card h-100 shadow-sm">
               <div className="card-body d-flex flex-column justify-content-between gap-3">
                 {editingId === playlist.id ? (
-                  <form onSubmit={(e) => void handleSaveEdit(e, playlist.id)} className="d-flex flex-column gap-2">
-                    <input
-                      type="text"
-                      className="form-control form-control-sm"
-                      aria-label="Rename playlist"
-                      maxLength={100}
-                      value={editName}
-                      onChange={(e) => setEditName(e.target.value)}
-                      disabled={renaming}
-                      autoFocus
-                    />
-                    <div className="d-flex gap-2">
+                  <form
+                    onSubmit={(e) => void handleSaveEdit(e, playlist.id)}
+                    className="d-flex align-items-center gap-2"
+                  >
+                    <div className="pt-input-pill pt-input-pill-sm flex-grow-1">
+                      <input
+                        type="text"
+                        className="form-control form-control-sm"
+                        aria-label="Rename playlist"
+                        maxLength={100}
+                        value={editName}
+                        onChange={(e) => setEditName(e.target.value)}
+                        disabled={renaming}
+                        autoFocus
+                      />
                       <button type="submit" className="btn btn-primary btn-sm" disabled={renaming}>
+                        <Icon name="check" />
                         {renaming ? 'Saving...' : 'Save'}
                       </button>
-                      <button
-                        type="button"
-                        className="btn btn-outline-secondary btn-sm"
-                        disabled={renaming}
-                        onClick={() => setEditingId(null)}
-                      >
-                        Cancel
-                      </button>
                     </div>
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-sm"
+                      disabled={renaming}
+                      onClick={() => setEditingId(null)}
+                    >
+                      Cancel
+                    </button>
                   </form>
                 ) : (
                   <div>
@@ -183,26 +198,25 @@ export const PlaylistsPage: React.FC = () => {
                 )}
 
                 <div className="d-flex justify-content-between align-items-center gap-2">
-                  <Link to={`/playlists/${playlist.id}`} className="btn btn-outline-primary btn-sm">
+                  <Link to={`/playlists/${playlist.id}`} className="btn btn-tint btn-sm">
+                    <Icon name="open" />
                     Open
                   </Link>
                   {!playlist.watchLater && editingId !== playlist.id && (
-                    <div className="d-flex gap-2">
-                      <button
-                        type="button"
-                        className="btn btn-outline-secondary btn-sm"
-                        onClick={() => handleStartEdit(playlist)}
-                      >
+                    <div className="d-flex gap-1">
+                      <button type="button" className="btn btn-ghost btn-sm" onClick={() => handleStartEdit(playlist)}>
+                        <Icon name="pencil" />
                         Rename
                       </button>
                       <button
                         type="button"
-                        className="btn btn-outline-danger btn-sm"
+                        className="btn btn-soft-danger btn-sm"
                         onClick={() => {
                           setActionError(null);
                           setDeleteTarget(playlist);
                         }}
                       >
+                        <Icon name="trash" />
                         Delete
                       </button>
                     </div>
@@ -250,7 +264,7 @@ export const PlaylistsPage: React.FC = () => {
                 <div className="modal-footer">
                   <button
                     type="button"
-                    className="btn btn-secondary"
+                    className="btn btn-soft"
                     disabled={deleting}
                     onClick={() => setDeleteTarget(null)}
                   >

@@ -28,7 +28,7 @@ test.describe('Playlists and Watch Later', () => {
     await expect(watchLaterCheckbox).toBeChecked();
 
     // Create a new list from inside the dropdown (auto-saves the video to it)
-    await page.getByRole('button', { name: '+ New list' }).click();
+    await page.getByRole('button', { name: 'New list', exact: true }).click();
     await page.getByLabel('New playlist name').fill('Weekend');
     await page.getByRole('button', { name: 'Create' }).click();
     await expect(page.getByLabel(/Weekend/i)).toBeChecked();

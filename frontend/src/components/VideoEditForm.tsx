@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import TagListEditor from './TagListEditor';
 import { videoService } from '../services/videoService';
 import type { VideoDetail } from '../types/video';
+import Icon from './Icon';
 
 // Same limits as the backend VideoUpdateRequestDto
 const TITLE_MAX = 255;
@@ -127,10 +128,11 @@ const VideoEditForm: React.FC<Props> = ({ video, onSaved, onCancel }) => {
       />
 
       <div className="d-flex gap-2 justify-content-end">
-        <button type="button" className="btn btn-outline-secondary" onClick={onCancel} disabled={saving}>
+        <button type="button" className="btn btn-ghost" onClick={onCancel} disabled={saving}>
           Cancel
         </button>
         <button type="submit" className="btn btn-primary" disabled={saving}>
+          <Icon name="check" />
           {saving ? 'Saving...' : 'Save changes'}
         </button>
       </div>

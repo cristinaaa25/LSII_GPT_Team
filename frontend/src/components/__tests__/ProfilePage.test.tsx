@@ -1,8 +1,13 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import type React from 'react';
+import { fireEvent, render as rtlRender, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import ProfilePage from '../ProfilePage';
 import { AuthContext, AuthContextType } from '../../context/AuthContext';
 import { userService } from '../../services/userService';
+import { ToastProvider } from '../../context/ToastProvider';
+
+// The page needs the app-level provider; wrap every render in it.
+const render = (ui: React.ReactElement) => rtlRender(ui, { wrapper: ToastProvider });
 
 jest.mock('../../services/userService', () => ({
   userService: {
@@ -214,8 +219,9 @@ describe('ProfilePage', () => {
 
   it('returns null when user is not present in context', () => {
     const contextWithoutUser = createAuthContext({ user: null });
-    const { container } = renderProfilePage(contextWithoutUser);
-    expect(container.firstChild).toBeNull();
+    renderProfilePage(contextWithoutUser);
+    expect(screen.queryByRole('heading', { name: 'Your Profile' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
   });
 
   it('resets selected file when file selection is cleared', () => {

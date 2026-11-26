@@ -5,12 +5,17 @@ import VideoEditForm from './VideoEditForm';
 import NotFoundPage from './NotFoundPage';
 import SubscribeButton from './SubscribeButton';
 import SaveToPlaylistDropdown from './SaveToPlaylistDropdown';
+import Skeleton from './Skeleton';
 import { AuthContext } from '../context/AuthContext';
 import { useVideoDetail } from '../hooks/useVideoDetail';
+import { useToast } from '../hooks/useToast';
 import { videoService } from '../services/videoService';
 import { getEnv } from '../utils/Env';
 import { formatDate, formatSubscribers, formatViews } from '../utils/format';
 import { SubscriptionStatus } from '../types/user';
+import Icon from './Icon';
+import Avatar from './Avatar';
+import VideoPlayer from './VideoPlayer';
 
 const resolveMediaUrl = (value: string | undefined, fallback: string): string => {
   if (!value) return `${getEnv().MEDIA_BASE_URL}/${fallback}`;
@@ -27,7 +32,7 @@ const VideoDetailPage: React.FC = () => {
   const { video, loading, error, notFound, registerView, replaceVideo } = useVideoDetail(id);
   const currentUser = useContext(AuthContext)?.user ?? null;
   const [editing, setEditing] = useState(false);
-  const [saved, setSaved] = useState(false);
+  const { showToast } = useToast();
   const [userLiked, setUserLiked] = useState<boolean | null>(null);
   const [likeOffset, setLikeOffset] = useState<number>(0);
   const [likeError, setLikeError] = useState<string | null>(null);
@@ -107,13 +112,7 @@ const VideoDetailPage: React.FC = () => {
   const posterSrc = video?.thumbnailUrl ? resolveMediaUrl(video.thumbnailUrl, '') : undefined;
 
   if (loading) {
-    return (
-      <div className="d-flex justify-content-center py-5" role="status" aria-label="Loading video">
-        <div className="spinner-border text-primary" role="status">
-          <span className="visually-hidden">Loading...</span>
-        </div>
-      </div>
-    );
+    return <Skeleton label="Loading video" variant="detail" />;
   }
 
   if (error) {
@@ -141,106 +140,82 @@ const VideoDetailPage: React.FC = () => {
 
   return (
     <article className="video-detail-page">
-      <div className="ratio ratio-16x9 bg-black rounded shadow-sm overflow-hidden mb-3">
-        <video
-          controls
-          src={videoSrc}
-          poster={posterSrc}
-          onPlay={registerView}
-          className="w-100 h-100"
-          aria-label={video.title}
-          autoPlay={true}
-        >
-          Your browser does not support HTML5 video playback.
-        </video>
-      </div>
-
-      {saved && !editing && (
-        <div className="alert alert-success alert-dismissible" role="status">
-          Changes saved.
-          <button type="button" className="btn-close" aria-label="Close" onClick={() => setSaved(false)} />
-        </div>
-      )}
+      <VideoPlayer src={videoSrc} poster={posterSrc} title={video.title} onPlay={registerView} autoPlay />
 
       <header className="mb-3">
-        <div className="d-flex justify-content-between align-items-start gap-2">
-          <h1 className="h3 mb-2">{video.title}</h1>
-          {isOwner && !editing && video.id !== undefined && (
-            <div className="d-flex gap-2">
-              <button
-                type="button"
-                className="btn btn-outline-primary btn-sm"
-                onClick={() => {
-                  setSaved(false);
-                  setEditing(true);
-                }}
-              >
-                Edit
-              </button>
-              <button
-                type="button"
-                className="btn btn-outline-danger btn-sm"
-                onClick={() => {
-                  setDeleteError(null);
-                  setShowDeleteModal(true);
-                }}
-              >
-                Delete
-              </button>
-            </div>
-          )}
-        </div>
-        <div className="d-flex flex-wrap justify-content-between align-items-center border-bottom pb-3 text-body-secondary small">
-          <div className="d-flex flex-wrap align-items-center gap-3">
-            <div className="d-flex flex-column">
-              <Link
-                to={`/users/${encodeURIComponent(video.author)}`}
-                className="fw-bold text-body text-decoration-none"
-              >
-                {video.author}
+        <h1 className="h3 mb-3">{video.title}</h1>
+        <div className="pt-video-actions">
+          {/* Channel: avatar + name + Subscribe, on one centre line */}
+          <div className="pt-action-row">
+            <div className="d-flex align-items-center gap-2">
+              {/* Same destination as the name link: hidden from assistive tech and the tab order */}
+              <Link to={`/users/${encodeURIComponent(video.author)}`} tabIndex={-1} aria-hidden="true">
+                <Avatar name={video.author} size={40} alt="" />
               </Link>
-              <span>{formatSubscribers(video.authorSubscriberCount ?? 0)}</span>
+              <span className="d-flex flex-column lh-sm">
+                <Link
+                  to={`/users/${encodeURIComponent(video.author)}`}
+                  className="fw-semibold text-body text-decoration-none"
+                >
+                  {video.author}
+                </Link>
+                <span className="small text-body-secondary">{formatSubscribers(video.authorSubscriberCount ?? 0)}</span>
+              </span>
             </div>
             <SubscribeButton
               channel={video.author}
               subscribed={Boolean(video.subscribedByMe)}
               onChange={handleSubscriptionChange}
-              size="sm"
             />
-            <span>{formatViews(video.views)}</span>
-            {video.uploadDate && <span>Uploaded on {formatDate(video.uploadDate)}</span>}
           </div>
-          <div className="d-flex flex-column align-items-end">
-            <div className="d-flex align-items-center gap-2">
-              {video.id !== undefined && <SaveToPlaylistDropdown videoId={video.id} />}
-              {currentUser ? (
+
+          {/* Actions: Like, Save and (owner) Edit / Delete, all 40px pills */}
+          <div className="pt-action-row">
+            {currentUser ? (
+              <button
+                type="button"
+                className={`btn ${liked ? 'btn-tint' : 'btn-soft'}`}
+                aria-pressed={liked}
+                onClick={handleToggleLike}
+                disabled={likePending}
+                aria-label={liked ? 'Unlike video' : 'Like video'}
+              >
+                <Icon name="thumbs-up" filled={liked} />
+                <span>{likeCount} likes</span>
+              </button>
+            ) : (
+              <Link to="/login" className="btn btn-soft" aria-label="Log in to like">
+                <Icon name="thumbs-up" />
+                <span>{likeCount} likes</span>
+              </Link>
+            )}
+            {video.id !== undefined && <SaveToPlaylistDropdown videoId={video.id} />}
+            {isOwner && !editing && video.id !== undefined && (
+              <>
+                <button type="button" className="btn btn-soft" onClick={() => setEditing(true)}>
+                  <Icon name="pencil" />
+                  Edit
+                </button>
                 <button
                   type="button"
-                  className={`btn btn-sm ${liked ? 'btn-primary' : 'btn-outline-secondary'}`}
-                  aria-pressed={liked}
-                  onClick={handleToggleLike}
-                  disabled={likePending}
-                  aria-label={liked ? 'Unlike video' : 'Like video'}
+                  className="btn btn-soft-danger"
+                  onClick={() => {
+                    setDeleteError(null);
+                    setShowDeleteModal(true);
+                  }}
                 >
-                  👍 <span className="badge bg-secondary ms-1">{likeCount} likes</span>
+                  <Icon name="trash" />
+                  Delete
                 </button>
-              ) : (
-                <Link
-                  to="/login"
-                  className="btn btn-outline-secondary btn-sm text-decoration-none"
-                  aria-label="Log in to like"
-                >
-                  👍 <span className="badge bg-secondary ms-1">{likeCount} likes</span>
-                </Link>
-              )}
-            </div>
-            {likeError && (
-              <div className="alert alert-danger py-1 px-2 small mt-1 mb-0" role="alert">
-                {likeError}
-              </div>
+              </>
             )}
           </div>
         </div>
+        {likeError && (
+          <div className="alert alert-danger py-1 px-2 small mt-2 mb-0" role="alert">
+            {likeError}
+          </div>
+        )}
       </header>
 
       {editing && video.id !== undefined && (
@@ -249,7 +224,7 @@ const VideoDetailPage: React.FC = () => {
           onSaved={(updated) => {
             replaceVideo(updated);
             setEditing(false);
-            setSaved(true);
+            showToast('Changes saved.');
           }}
           onCancel={() => setEditing(false)}
         />
@@ -277,13 +252,17 @@ const VideoDetailPage: React.FC = () => {
         </div>
       )}
 
-      {video.description && (
-        <section className="card bg-body-tertiary border-0 p-3 mb-4" aria-label="Description">
+      <section className="card bg-body-tertiary border-0 p-3 mb-4" aria-label="Description">
+        <p className="fw-semibold small mb-1">
+          <span>{formatViews(video.views)}</span>
+          {video.uploadDate && <span className="ms-2">Uploaded on {formatDate(video.uploadDate)}</span>}
+        </p>
+        {video.description && (
           <p className="card-text mb-0" style={{ whiteSpace: 'pre-line' }}>
             {video.description}
           </p>
-        </section>
-      )}
+        )}
+      </section>
 
       {video.id !== undefined && <CommentSection videoId={video.id} initialCommentCount={video.commentCount} />}
 
@@ -299,9 +278,9 @@ const VideoDetailPage: React.FC = () => {
             <div className="modal-dialog modal-dialog-centered">
               <div className="modal-content">
                 <div className="modal-header">
-                  <h5 className="modal-title" id="delete-video-modal-title">
+                  <h2 className="modal-title h5" id="delete-video-modal-title">
                     Delete Video
-                  </h5>
+                  </h2>
                   <button
                     type="button"
                     className="btn-close"
@@ -326,7 +305,7 @@ const VideoDetailPage: React.FC = () => {
                 <div className="modal-footer">
                   <button
                     type="button"
-                    className="btn btn-secondary"
+                    className="btn btn-soft"
                     disabled={isDeleting}
                     onClick={() => {
                       setShowDeleteModal(false);

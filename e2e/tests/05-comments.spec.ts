@@ -55,10 +55,10 @@ test.describe('Comments, Replies and Likes (US-09, US-10)', () => {
 
     // 3. Like the comment
     const likeButton = commentArticle.getByRole('button', { name: `Like comment by ${user.username}` });
-    await expect(likeButton).toContainText('👍 0');
+    await expect(likeButton).toHaveText('0');
     await likeButton.click();
 
     // Verify like count incremented
-    await expect(likeButton).toContainText('👍 1');
+    await expect(likeButton).toHaveText('1');
   });
 });

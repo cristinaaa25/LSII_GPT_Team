@@ -12,29 +12,39 @@ const VideoCard: React.FC<Props> = ({ video }) => {
   const duration = formatDuration(video.duration);
 
   return (
-    <article className="card h-100 shadow-sm" aria-label={video.title}>
-      <Link to={`/videos/${video.id}`} className="text-decoration-none text-reset d-block">
+    <article className="card h-100 shadow-sm pt-card" aria-label={video.title}>
+      {/* The thumbnail repeats the title link: hidden from screen readers and the tab order */}
+      <Link
+        to={`/videos/${video.id}`}
+        className="text-decoration-none text-reset d-block"
+        tabIndex={-1}
+        aria-hidden="true"
+      >
         <div className="position-relative">
-          <div className="ratio ratio-16x9 bg-dark rounded-top overflow-hidden">
+          <div className="ratio ratio-16x9 pt-thumb overflow-hidden">
             {video.thumbnail ? (
               <img
                 src={`${getEnv().MEDIA_BASE_URL}/${video.thumbnail}`}
-                alt={video.title}
+                alt=""
                 className="object-fit-cover"
                 loading="lazy"
               />
             ) : (
-              <div
-                className="d-flex align-items-center justify-content-center text-white-50 fs-1"
-                role="img"
-                aria-label="No thumbnail"
-              >
-                ▶
+              <div className="d-flex align-items-center justify-content-center pt-thumb-placeholder">
+                <svg width="48" height="48" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <path
+                    fill="currentColor"
+                    d="M8 5.5v13a1 1 0 0 0 1.53.85l10.2-6.5a1 1 0 0 0 0-1.7L9.53 4.65A1 1 0 0 0 8 5.5Z"
+                  />
+                </svg>
               </div>
             )}
           </div>
           {duration && (
-            <span className="badge bg-dark bg-opacity-75 position-absolute bottom-0 end-0 m-2" aria-label="Duration">
+            <span
+              className="badge text-bg-dark bg-opacity-75 position-absolute bottom-0 end-0 m-2"
+              aria-label="Duration"
+            >
               {duration}
             </span>
           )}
