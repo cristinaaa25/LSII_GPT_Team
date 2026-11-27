@@ -6,6 +6,7 @@ export interface VideoSummary {
   duration: number | null;
   views: number;
   thumbnail: string | null;
+  videoUrl?: string;
 }
 
 /** Distinct video from the user's watch history (GET /api/users/me/history). */
